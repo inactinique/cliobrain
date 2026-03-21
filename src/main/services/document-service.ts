@@ -11,13 +11,15 @@ import { HNSWVectorStore } from '../../../backend/core/vector-store/HNSWVectorSt
 import { BM25Index } from '../../../backend/core/search/BM25Index.js';
 import { HybridSearch } from '../../../backend/core/search/HybridSearch.js';
 import { OllamaClient } from '../../../backend/core/llm/OllamaClient.js';
+import { DocumentIngestionPipeline } from '../../../backend/core/ingestion/DocumentIngestionPipeline.js';
 import { configManager } from './config-manager.js';
-import type { SearchResult, SearchOptions, VectorStoreStatistics } from '../../../backend/types/document.js';
+import type { Document, SearchResult, SearchOptions, VectorStoreStatistics, IndexingProgress } from '../../../backend/types/document.js';
 
 class DocumentService {
   private vectorStore: VectorStore | null = null;
   private hnswStore: HNSWVectorStore | null = null;
   private bm25Index: BM25Index | null = null;
+  private ingestionPipeline: DocumentIngestionPipeline | null = null;
   private hybridSearch: HybridSearch | null = null;
   private ollamaClient: OllamaClient | null = null;
   private workspaceDataDir: string | null = null;
@@ -40,6 +42,10 @@ class DocumentService {
 
   get ollama(): OllamaClient | null {
     return this.ollamaClient;
+  }
+
+  get pipeline(): DocumentIngestionPipeline | null {
+    return this.ingestionPipeline;
   }
 
   async initialize(dataDir: string): Promise<void> {
@@ -69,6 +75,11 @@ class DocumentService {
       embeddingModel: config.llm?.ollamaEmbeddingModel || 'nomic-embed-text',
       chatModel: config.llm?.ollamaChatModel || 'gemma2:2b',
     });
+
+    // Initialize ingestion pipeline
+    this.ingestionPipeline = new DocumentIngestionPipeline(
+      this.vectorStore, this.hnswStore, this.bm25Index, this.ollamaClient
+    );
 
     // Load existing chunks into BM25 and HNSW if HNSW was freshly created
     if (!hnswResult.loaded) {
@@ -105,6 +116,16 @@ class DocumentService {
     }
 
     return [];
+  }
+
+  async ingestFile(filePath: string, options?: { sourceType?: Document['sourceType']; sourceRef?: string; onProgress?: (p: IndexingProgress) => void }): Promise<Document> {
+    if (!this.ingestionPipeline) throw new Error('Not initialized');
+    return this.ingestionPipeline.ingestFile(filePath, options);
+  }
+
+  async ingestFolder(dirPath: string, options?: { recursive?: boolean; onProgress?: (p: IndexingProgress) => void }): Promise<{ ingested: number; skipped: number; errors: number }> {
+    if (!this.ingestionPipeline) throw new Error('Not initialized');
+    return this.ingestionPipeline.ingestFolder(dirPath, options);
   }
 
   getStatistics(): VectorStoreStatistics | null {

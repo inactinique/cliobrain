@@ -1,13 +1,19 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { documentService } from '../../services/document-service.js';
 import { successResponse, errorResponse } from '../utils/error-handler.js';
 
 export function setupDocumentHandlers() {
   ipcMain.handle('document:ingest', async (_event, filePath: string) => {
     try {
-      // TODO: Wire to full document ingestion pipeline (Phase 4)
-      console.log('[Documents] Ingest:', filePath);
-      return successResponse({ id: 'todo', filePath });
+      if (!documentService.isInitialized) return errorResponse('No workspace loaded');
+
+      const win = BrowserWindow.getAllWindows()[0];
+      const doc = await documentService.ingestFile(filePath, {
+        onProgress: (progress) => {
+          win?.webContents.send('document:indexing-progress', progress);
+        },
+      });
+      return successResponse(doc);
     } catch (error) {
       return errorResponse(error);
     }
@@ -15,8 +21,15 @@ export function setupDocumentHandlers() {
 
   ipcMain.handle('document:ingest-folder', async (_event, dirPath: string) => {
     try {
-      console.log('[Documents] Ingest folder:', dirPath);
-      return successResponse({ count: 0 });
+      if (!documentService.isInitialized) return errorResponse('No workspace loaded');
+
+      const win = BrowserWindow.getAllWindows()[0];
+      const result = await documentService.ingestFolder(dirPath, {
+        onProgress: (progress) => {
+          win?.webContents.send('document:indexing-progress', progress);
+        },
+      });
+      return successResponse(result);
     } catch (error) {
       return errorResponse(error);
     }
@@ -66,6 +79,8 @@ export function setupDocumentHandlers() {
     try {
       if (documentService.store) {
         documentService.store.purgeAll();
+        documentService.hnsw?.clear();
+        documentService.bm25?.clear();
       }
       return successResponse(true);
     } catch (error) {
@@ -75,7 +90,7 @@ export function setupDocumentHandlers() {
 
   ipcMain.handle('document:rebuild-index', async () => {
     try {
-      // TODO: Rebuild HNSW + BM25 from DB
+      // TODO: Full rebuild from DB
       return successResponse(true);
     } catch (error) {
       return errorResponse(error);

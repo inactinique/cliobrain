@@ -62,7 +62,7 @@ function App() {
   }, []);
 
   return (
-    <div className="h-full w-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="h-full w-full" style={{ background: 'var(--bg-app)', color: 'var(--text-primary)' }}>
       <MainLayout />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
       <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
@@ -71,19 +71,16 @@ function App() {
 }
 
 function updateThemeClass(theme: string) {
-  const root = document.documentElement;
-  if (theme === 'dark') {
-    root.classList.add('dark');
-  } else if (theme === 'light') {
-    root.classList.remove('dark');
-  } else {
-    // system
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+  const body = document.body;
+  body.classList.remove('theme-light');
+  if (theme === 'light') {
+    body.classList.add('theme-light');
+  } else if (theme === 'system') {
+    if (!window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      body.classList.add('theme-light');
     }
   }
+  // Dark is default (no class needed, :root has dark values)
 }
 
 export default App;

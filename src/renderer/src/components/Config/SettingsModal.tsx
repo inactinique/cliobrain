@@ -71,21 +71,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex overflow-hidden"
+        className="w-[700px] max-h-[80vh] flex overflow-hidden"
+        style={{ background: 'var(--bg-panel)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border-color)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Sidebar */}
-        <div className="w-48 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 py-4">
-          <h2 className="px-4 text-sm font-semibold mb-3">{t('settings.title')}</h2>
+        <div className="w-48 py-4" style={{ background: 'var(--bg-app)', borderRight: '1px solid var(--border-color)' }}>
+          <h2 className="px-4 text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{t('settings.title')}</h2>
           {sections.map(s => (
             <button
               key={s.id}
               onClick={() => setActiveSection(s.id)}
-              className={`w-full flex items-center gap-2 px-4 py-2 text-xs transition-colors ${
-                activeSection === s.id
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
+              className="w-full flex items-center gap-2 px-4 py-2 text-xs transition-colors"
+              style={{
+                background: activeSection === s.id ? 'var(--bg-card)' : 'transparent',
+                color: activeSection === s.id ? 'var(--color-accent)' : 'var(--text-tertiary)',
+              }}
             >
               {s.icon}
               {s.label}
@@ -95,11 +96,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
         {/* Content */}
         <div className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-sm font-semibold">
+          <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               {sections.find(s => s.id === activeSection)?.label}
             </h3>
-            <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+            <button onClick={onClose} className="p-1" style={{ color: 'var(--text-muted)' }}>
               <X size={18} />
             </button>
           </div>
@@ -271,16 +272,16 @@ function FoldersSection({ config }: any) {
 
   return (
     <>
-      <p className="text-xs text-gray-500 mb-3">
+      <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
         Les dossiers surveillés sont automatiquement indexés quand des fichiers sont ajoutés ou modifiés.
       </p>
       {watched.map(p => (
-        <div key={p} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded px-3 py-2 text-xs">
-          <span className="truncate">{p}</span>
-          <button onClick={() => handleRemove(p)} className="text-red-500 hover:text-red-700 ml-2 shrink-0">✕</button>
+        <div key={p} className="flex items-center justify-between rounded px-3 py-2 text-xs" style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-md)' }}>
+          <span className="truncate" style={{ color: 'var(--text-primary)' }}>{p}</span>
+          <button onClick={() => handleRemove(p)} className="ml-2 shrink-0" style={{ color: 'var(--color-danger)' }}>✕</button>
         </div>
       ))}
-      <button onClick={handleAdd} className="w-full py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded text-xs text-gray-500 hover:border-blue-500 hover:text-blue-500">
+      <button onClick={handleAdd} className="w-full py-2 rounded text-xs" style={{ border: '1px dashed var(--border-color)', color: 'var(--text-muted)', borderRadius: 'var(--radius-md)' }}>
         + Ajouter un dossier
       </button>
     </>
@@ -336,13 +337,13 @@ function LanguageSection({ config, onUpdate }: any) {
 function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div className="flex-1">
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</label>
       <input
         type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="input w-full text-xs"
       />
     </div>
   );
@@ -351,7 +352,7 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
 function NumberField({ label, value, onChange, min, max, step }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</label>
       <input
         type="number"
         value={value}
@@ -359,7 +360,7 @@ function NumberField({ label, value, onChange, min, max, step }: { label: string
         min={min}
         max={max}
         step={step}
-        className="w-32 px-2 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-32 px-2 py-1.5 input text-xs"
       />
     </div>
   );
@@ -368,11 +369,11 @@ function NumberField({ label, value, onChange, min, max, step }: { label: string
 function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</label>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full px-2 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full px-2 py-1.5 input text-xs"
       >
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
@@ -386,7 +387,8 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
       <span className="text-xs">{label}</span>
       <button
         onClick={() => onChange(!value)}
-        className={`relative w-9 h-5 rounded-full transition-colors ${value ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+        className="relative w-9 h-5 rounded-full transition-colors"
+        style={{ background: value ? 'var(--color-accent)' : 'var(--bg-input)' }}
       >
         <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${value ? 'translate-x-4' : ''}`} />
       </button>

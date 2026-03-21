@@ -30,11 +30,10 @@ export function MainLayout() {
 
   return (
     <PanelGroup direction="horizontal" className="h-full">
-      {/* Left Panel: Sources / Notes */}
+      {/* Left Panel: Sources / Vault */}
       <Panel defaultSize={25} minSize={15} maxSize={40}>
-        <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
-          {/* Tab bar */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <div className="h-full flex flex-col" style={{ background: 'var(--bg-panel)', borderRight: '1px solid var(--border-color)' }}>
+          <div className="flex" style={{ borderBottom: '1px solid var(--border-color)' }}>
             <TabButton
               active={leftTab === 'sources'}
               onClick={() => setLeftTab('sources')}
@@ -48,7 +47,6 @@ export function MainLayout() {
               label={t('vault.title')}
             />
           </div>
-          {/* Tab content */}
           <div className="flex-1 overflow-hidden">
             {leftTab === 'sources' && <SourcesPanel />}
             {leftTab === 'vault' && <VaultBrowserPanel />}
@@ -56,20 +54,19 @@ export function MainLayout() {
         </div>
       </Panel>
 
-      <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 transition-colors cursor-col-resize" />
+      <PanelResizeHandle />
 
       {/* Center Panel: Chat (primary) */}
       <Panel defaultSize={50} minSize={30}>
         <ChatPanel />
       </Panel>
 
-      <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 transition-colors cursor-col-resize" />
+      <PanelResizeHandle />
 
       {/* Right Panel: Graph / History */}
       <Panel defaultSize={25} minSize={15} maxSize={40}>
-        <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
-          {/* Tab bar */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <div className="h-full flex flex-col" style={{ background: 'var(--bg-panel)', borderLeft: '1px solid var(--border-color)' }}>
+          <div className="flex" style={{ borderBottom: '1px solid var(--border-color)' }}>
             <TabButton
               active={rightTab === 'graph'}
               onClick={() => setRightTab('graph')}
@@ -83,7 +80,6 @@ export function MainLayout() {
               label={t('history.title')}
             />
           </div>
-          {/* Tab content */}
           <div className="flex-1 overflow-hidden">
             {rightTab === 'graph' && <GraphPanel />}
             {rightTab === 'history' && <HistoryPanel />}
@@ -108,11 +104,11 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
-        active
-          ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-      }`}
+      className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors"
+      style={{
+        color: active ? 'var(--color-accent)' : 'var(--text-tertiary)',
+        borderBottom: active ? '2px solid var(--color-accent)' : '2px solid transparent',
+      }}
     >
       {icon}
       {label}

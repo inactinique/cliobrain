@@ -2,17 +2,17 @@ import { FallbackProps } from 'react-error-boundary';
 
 export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full p-8 bg-red-50 dark:bg-red-950">
-      <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-4">
+    <div className="flex flex-col items-center justify-center h-full p-8" style={{ background: 'var(--bg-app)' }}>
+      <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-danger)' }}>
         Une erreur est survenue
       </h2>
-      <pre className="text-sm text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900 p-4 rounded mb-4 max-w-lg overflow-auto">
+      <pre
+        className="text-sm p-4 rounded mb-4 max-w-lg overflow-auto"
+        style={{ background: 'var(--bg-card)', color: 'var(--color-danger)', borderRadius: 'var(--radius-md)' }}
+      >
         {error.message}
       </pre>
-      <button
-        onClick={resetErrorBoundary}
-        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-      >
+      <button onClick={resetErrorBoundary} className="btn-danger">
         Réessayer
       </button>
     </div>

@@ -1,14 +1,111 @@
 @import "tailwindcss";
 
-/* Custom base styles */
+/* ─── ClioBrain Theme (harmonized with ClioDeck) ─── */
+
+:root {
+  /* Accent */
+  --color-accent: #007acc;
+  --color-accent-hover: #005a9e;
+  --color-accent-active: #004578;
+
+  /* Semantic */
+  --color-danger: #d13438;
+  --color-danger-hover: #a02d30;
+  --color-success: #4ec9b0;
+  --color-warning: #f48771;
+
+  /* Backgrounds - Dark (default) */
+  --bg-app: #1e1e1e;
+  --bg-panel: #252526;
+  --bg-panel-hover: #2a2a2b;
+  --bg-card: #2d2d2d;
+  --bg-card-hover: #323233;
+  --bg-input: #3c3c3c;
+  --bg-input-hover: #4a4a4a;
+
+  /* Text */
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --text-tertiary: #888888;
+  --text-muted: #6a6a6a;
+
+  /* Borders */
+  --border-color: #3e3e42;
+  --border-color-hover: #4e4e4e;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #424242;
+  --scrollbar-thumb-hover: #4e4e4e;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.2);
+
+  /* Typography */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Transitions */
+  --transition-fast: 0.1s;
+  --transition-normal: 0.2s;
+}
+
+/* Light theme overrides */
+.theme-light {
+  --color-accent: #0078d4;
+  --color-accent-hover: #106ebe;
+  --color-accent-active: #005a9e;
+
+  --color-success: #107c10;
+  --color-warning: #f7630c;
+
+  --bg-app: #f3f3f3;
+  --bg-panel: #ffffff;
+  --bg-panel-hover: #f5f5f5;
+  --bg-card: #fafafa;
+  --bg-card-hover: #f0f0f0;
+  --bg-input: #ffffff;
+  --bg-input-hover: #f5f5f5;
+
+  --text-primary: #1e1e1e;
+  --text-secondary: #3e3e3e;
+  --text-tertiary: #666666;
+  --text-muted: #999999;
+
+  --border-color: #e0e0e0;
+  --border-color-hover: #d0d0d0;
+
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-thumb-hover: #a0a0a0;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.16);
+}
+
+/* ─── Base Styles ─── */
+
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  background: var(--bg-app);
 }
 
-/* Scrollbar styling */
+/* ─── Scrollbar ─── */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -19,29 +116,126 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #a0a0a0;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #555;
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
-/* Panel resize handle */
+/* ─── Panel Resize Handle ─── */
+
 [data-panel-group-direction="horizontal"] > [data-resize-handle] {
-  width: 4px;
-  background: #e5e7eb;
-  transition: background 150ms;
+  width: 3px;
+  background: var(--border-color);
+  transition: background var(--transition-normal);
 }
 
 [data-panel-group-direction="horizontal"] > [data-resize-handle]:hover {
-  background: #3b82f6;
+  background: var(--color-accent);
 }
 
-.dark [data-panel-group-direction="horizontal"] > [data-resize-handle] {
-  background: #374151;
+/* ─── Buttons ─── */
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
-.dark [data-panel-group-direction="horizontal"] > [data-resize-handle]:hover {
-  background: #3b82f6;
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.btn-primary:active {
+  background: var(--color-accent-active);
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-input-hover);
+  border-color: var(--border-color-hover);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btn-danger:hover {
+  background: var(--color-danger-hover);
+}
+
+/* ─── Inputs ─── */
+
+.input {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 5px 8px;
+  font-size: var(--font-size-sm);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.input:hover {
+  border-color: var(--border-color-hover);
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+}
+
+/* ─── Prose (markdown rendering) ─── */
+
+.prose-cliobrain {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.prose-cliobrain h1, .prose-cliobrain h2, .prose-cliobrain h3 {
+  color: var(--text-primary);
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.prose-cliobrain a {
+  color: var(--color-accent);
+}
+
+.prose-cliobrain code {
+  background: var(--bg-input);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+
+.prose-cliobrain blockquote {
+  border-left: 3px solid var(--border-color);
+  padding-left: 12px;
+  color: var(--text-secondary);
 }

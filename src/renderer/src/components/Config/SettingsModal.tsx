@@ -28,11 +28,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   const checkOllama = async () => {
-    const result = await window.electron.ollama.checkAvailability();
-    setOllamaStatus(result.success ? result.data : false);
-    if (result.data) {
-      const models = await window.electron.ollama.listModels();
-      if (models.success) setOllamaModels(models.data || []);
+    try {
+      const result = await window.electron.ollama.checkAvailability();
+      const available = result.success ? result.data : false;
+      setOllamaStatus(available);
+      if (available) {
+        const models = await window.electron.ollama.listModels();
+        if (models.success) setOllamaModels(models.data || []);
+      }
+    } catch {
+      setOllamaStatus(false);
     }
   };
 

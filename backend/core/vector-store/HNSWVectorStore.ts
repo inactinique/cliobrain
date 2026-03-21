@@ -43,7 +43,7 @@ export class HNSWVectorStore {
   async initialize(): Promise<{ success: boolean; loaded: boolean; corrupted: boolean }> {
     try {
       const hnswlib = await import('hnswlib-node');
-      HierarchicalNSW = hnswlib.HierarchicalNSW;
+      HierarchicalNSW = hnswlib.default?.HierarchicalNSW || hnswlib.HierarchicalNSW;
 
       if (fs.existsSync(this.indexPath) && this.validateIndexFile()) {
         try {

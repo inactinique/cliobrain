@@ -44,11 +44,6 @@ class WorkspaceManager {
     return path.join(this.dataDir, 'hnsw.index');
   }
 
-  get notesDir(): string | null {
-    if (!this.dataDir) return null;
-    return path.join(this.dataDir, NOTES_DIR);
-  }
-
   get config(): WorkspaceConfig | null {
     return this.currentConfig;
   }

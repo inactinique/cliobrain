@@ -5,17 +5,17 @@
  * - workspace.json: workspace configuration
  * - brain.db: SQLite database (documents, chunks, embeddings, entities, sessions)
  * - hnsw.index: HNSW vector index
- * - notes/: user notes as markdown files
  */
 
 import path from 'path';
 import fs from 'fs';
 import type { WorkspaceConfig, WorkspaceMetadata } from '../../../backend/types/workspace.js';
 import { configManager } from './config-manager.js';
+import { documentService } from './document-service.js';
+import { vaultService } from './vault-service.js';
 
 const WORKSPACE_DIR = '.cliobrain';
 const WORKSPACE_CONFIG_FILE = 'workspace.json';
-const NOTES_DIR = 'notes';
 
 class WorkspaceManager {
   private currentWorkspacePath: string | null = null;
@@ -55,11 +55,8 @@ class WorkspaceManager {
 
   async create(dirPath: string, name: string, language: 'fr' | 'en' | 'de' = 'fr'): Promise<WorkspaceMetadata> {
     const dataDirPath = path.join(dirPath, WORKSPACE_DIR);
-    const notesDirPath = path.join(dataDirPath, NOTES_DIR);
-
     // Create directories
     fs.mkdirSync(dataDirPath, { recursive: true });
-    fs.mkdirSync(notesDirPath, { recursive: true });
 
     // Create workspace config
     const config: WorkspaceConfig = {
@@ -91,17 +88,33 @@ class WorkspaceManager {
     this.currentConfig = JSON.parse(configContent) as WorkspaceConfig;
     this.currentWorkspacePath = dirPath;
 
-    // Ensure notes directory exists
-    const notesDirPath = path.join(dataDirPath, NOTES_DIR);
-    if (!fs.existsSync(notesDirPath)) {
-      fs.mkdirSync(notesDirPath, { recursive: true });
+    // Initialize document service (SQLite, HNSW, BM25, Ollama)
+    await documentService.initialize(dataDirPath);
+
+    // Auto-connect Obsidian vault if configured
+    if (this.currentConfig.obsidian?.vaultPath) {
+      try {
+        await vaultService.connect(
+          this.currentConfig.obsidian.vaultPath,
+          documentService.store!,
+          documentService.hnsw!,
+          documentService.bm25!,
+          documentService.ollama!
+        );
+        console.log(`[WorkspaceManager] Vault connected: ${this.currentConfig.obsidian.vaultPath}`);
+      } catch (e) {
+        console.warn('[WorkspaceManager] Failed to auto-connect vault:', e);
+      }
     }
 
+    const stats = documentService.getStatistics();
     const metadata: WorkspaceMetadata = {
       name: this.currentConfig.name,
       path: dirPath,
       createdAt: this.currentConfig.createdAt,
       lastOpenedAt: new Date().toISOString(),
+      documentCount: stats?.documentCount,
+      vaultNoteCount: stats?.noteCount,
     };
 
     // Update recent workspaces
@@ -111,7 +124,9 @@ class WorkspaceManager {
     return metadata;
   }
 
-  close(): void {
+  async close(): Promise<void> {
+    await vaultService.disconnect();
+    documentService.close();
     this.currentWorkspacePath = null;
     this.currentConfig = null;
     console.log('[WorkspaceManager] Workspace closed');

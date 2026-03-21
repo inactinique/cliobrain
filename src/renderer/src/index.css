@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Custom base styles */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a0a0a0;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #555;
+}
+
+/* Panel resize handle */
+[data-panel-group-direction="horizontal"] > [data-resize-handle] {
+  width: 4px;
+  background: #e5e7eb;
+  transition: background 150ms;
+}
+
+[data-panel-group-direction="horizontal"] > [data-resize-handle]:hover {
+  background: #3b82f6;
+}
+
+.dark [data-panel-group-direction="horizontal"] > [data-resize-handle] {
+  background: #374151;
+}
+
+.dark [data-panel-group-direction="horizontal"] > [data-resize-handle]:hover {
+  background: #3b82f6;
+}

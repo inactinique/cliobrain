@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "target": "ES2021",
+    "lib": ["ES2021"],
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "strict": false,
+    "resolveJsonModule": true,
+    "types": ["node", "better-sqlite3"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@backend/*": ["backend/*"],
+      "@shared/*": ["src/shared/*"]
+    }
+  },
+  "include": ["src/main/**/*", "src/shared/**/*", "backend/**/*"],
+  "exclude": ["backend/__tests__/**/*", "src/main/**/__tests__/**/*"]
+}

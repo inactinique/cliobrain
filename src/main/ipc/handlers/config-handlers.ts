@@ -34,7 +34,7 @@ export function setupConfigHandlers() {
       const url = config.llm?.ollamaURL || 'http://127.0.0.1:11434';
       const response = await fetch(`${url}/api/tags`);
       const data = await response.json() as { models?: any[] };
-      return successResponse(data.models || []);
+      return successResponse((data.models || []).map((m: any) => m.name as string));
     } catch (error) {
       return errorResponse(error);
     }

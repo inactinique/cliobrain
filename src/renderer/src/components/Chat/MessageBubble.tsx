@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Bot, FileText } from 'lucide-react';
+import { useVaultStore } from '../../stores/vaultStore';
+import { User, Bot, FileText, Download, Check } from 'lucide-react';
 
 interface Source {
   documentId: string;
@@ -27,7 +29,22 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const { t } = useTranslation();
+  const { isConnected, exportMessage } = useVaultStore();
+  const [exported, setExported] = useState(false);
   const isUser = message.role === 'user';
+
+  const handleExport = async () => {
+    const result = await exportMessage({
+      assistantMessage: message.content,
+      sources: message.sources?.map(s => ({
+        documentTitle: s.documentTitle,
+        author: s.author,
+        year: s.year,
+        pageNumber: s.pageNumber,
+      })),
+    });
+    if (result) setExported(true);
+  };
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -69,6 +86,22 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
               <SourceCard key={i} source={source} />
             ))}
           </div>
+        )}
+
+        {/* Export to Obsidian button (assistant messages only) */}
+        {!isUser && !isStreaming && isConnected && (
+          <button
+            onClick={handleExport}
+            disabled={exported}
+            className={`mt-1.5 flex items-center gap-1 text-[11px] transition-colors ${
+              exported
+                ? 'text-green-500'
+                : 'text-gray-400 hover:text-purple-600 dark:hover:text-purple-400'
+            }`}
+          >
+            {exported ? <Check size={12} /> : <Download size={12} />}
+            {exported ? t('vault.exportSuccess') : t('vault.exportToVault')}
+          </button>
         )}
       </div>
     </div>

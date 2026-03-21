@@ -8,7 +8,7 @@ export interface Document {
   title: string;
   author?: string;
   year?: string;
-  sourceType: 'file' | 'zotero' | 'tropy' | 'folder';
+  sourceType: 'file' | 'zotero' | 'tropy' | 'folder' | 'obsidian-note';
   sourceRef?: string;
   fileFormat: 'pdf' | 'txt' | 'html' | 'md' | 'docx';
   pageCount?: number;
@@ -53,7 +53,7 @@ export interface SearchResult {
 export interface SearchOptions {
   topK?: number;
   similarityThreshold?: number;
-  sourceFilter?: ('file' | 'zotero' | 'tropy' | 'folder' | 'note')[];
+  sourceFilter?: ('file' | 'zotero' | 'tropy' | 'folder' | 'obsidian-note')[];
   documentIds?: string[];
   collectionKeys?: string[];
   useHybridSearch?: boolean;

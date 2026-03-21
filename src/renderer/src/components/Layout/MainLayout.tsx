@@ -4,18 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { ChatPanel } from '../Chat/ChatPanel';
 import { SourcesPanel } from '../Sources/SourcesPanel';
-import { NotesPanel } from '../Notes/NotesPanel';
+import { VaultBrowserPanel } from '../Vault/VaultBrowserPanel';
 import { GraphPanel } from '../Graph/GraphPanel';
 import { HistoryPanel } from '../History/HistoryPanel';
 import { WelcomeScreen } from './WelcomeScreen';
 import {
   BookOpen,
-  StickyNote,
+  Vault,
   Network,
   History,
 } from 'lucide-react';
 
-type LeftTab = 'sources' | 'notes';
+type LeftTab = 'sources' | 'vault';
 type RightTab = 'graph' | 'history';
 
 export function MainLayout() {
@@ -42,16 +42,16 @@ export function MainLayout() {
               label={t('sources.title')}
             />
             <TabButton
-              active={leftTab === 'notes'}
-              onClick={() => setLeftTab('notes')}
-              icon={<StickyNote size={16} />}
-              label={t('notes.title')}
+              active={leftTab === 'vault'}
+              onClick={() => setLeftTab('vault')}
+              icon={<Vault size={16} />}
+              label={t('vault.title')}
             />
           </div>
           {/* Tab content */}
           <div className="flex-1 overflow-hidden">
             {leftTab === 'sources' && <SourcesPanel />}
-            {leftTab === 'notes' && <NotesPanel />}
+            {leftTab === 'vault' && <VaultBrowserPanel />}
           </div>
         </div>
       </Panel>

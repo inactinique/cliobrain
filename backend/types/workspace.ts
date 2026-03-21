@@ -21,6 +21,11 @@ export interface WorkspaceConfig {
     maxDepth: number;
     enabled: boolean;
   }>;
+  obsidian?: {
+    vaultPath: string;
+    exportSubfolder?: string;
+    autoIndex?: boolean;
+  };
 }
 
 export interface WorkspaceMetadata {
@@ -29,5 +34,5 @@ export interface WorkspaceMetadata {
   createdAt: string;
   lastOpenedAt: string;
   documentCount?: number;
-  noteCount?: number;
+  vaultNoteCount?: number;
 }

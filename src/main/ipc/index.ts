@@ -12,7 +12,7 @@ import { setupSearchHandlers } from './handlers/search-handlers.js';
 import { setupZoteroHandlers } from './handlers/zotero-handlers.js';
 import { setupTropyHandlers } from './handlers/tropy-handlers.js';
 import { setupFolderHandlers } from './handlers/folder-handlers.js';
-import { setupNotesHandlers } from './handlers/notes-handlers.js';
+import { setupVaultHandlers } from './handlers/vault-handlers.js';
 import { setupGraphHandlers } from './handlers/graph-handlers.js';
 import { setupHistoryHandlers } from './handlers/history-handlers.js';
 import { setupFilesystemHandlers } from './handlers/filesystem-handlers.js';
@@ -29,7 +29,7 @@ import { setupFilesystemHandlers } from './handlers/filesystem-handlers.js';
  * - Zotero integration (5 handlers)
  * - Tropy integration (4 handlers)
  * - Folder monitoring (4 handlers)
- * - Notes management (6 handlers)
+ * - Obsidian vault (13 handlers)
  * - Knowledge graph (4 handlers)
  * - History and sessions (5 handlers)
  * - Filesystem and dialogs (5 handlers)
@@ -47,7 +47,7 @@ export function setupIPCHandlers() {
   setupZoteroHandlers();
   setupTropyHandlers();
   setupFolderHandlers();
-  setupNotesHandlers();
+  setupVaultHandlers();
   setupGraphHandlers();
   setupHistoryHandlers();
   setupFilesystemHandlers();

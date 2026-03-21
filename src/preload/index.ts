@@ -9,6 +9,8 @@ const ALLOWED_RECEIVE_CHANNELS: string[] = [
   'chat:stream', 'chat:stream-done', 'chat:stream-error',
   // Indexing progress
   'document:indexing-progress',
+  // Vault indexing progress
+  'vault:indexing-progress',
   // Zotero/Tropy sync progress
   'zotero:sync-progress', 'tropy:sync-progress', 'tropy:file-changed',
   // Language sync
@@ -122,16 +124,32 @@ const api = {
     rescan: (folderPath: string) => ipcRenderer.invoke('folder:rescan', folderPath),
   },
 
-  // Notes
-  notes: {
-    create: (data: { title: string; content: string; tags?: string[] }) =>
-      ipcRenderer.invoke('notes:create', data),
-    update: (noteId: string, data: { title?: string; content?: string; tags?: string[] }) =>
-      ipcRenderer.invoke('notes:update', noteId, data),
-    delete: (noteId: string) => ipcRenderer.invoke('notes:delete', noteId),
-    getAll: () => ipcRenderer.invoke('notes:get-all'),
-    get: (noteId: string) => ipcRenderer.invoke('notes:get', noteId),
-    search: (query: string) => ipcRenderer.invoke('notes:search', query),
+  // Obsidian Vault
+  vault: {
+    connect: (vaultPath: string) => ipcRenderer.invoke('vault:connect', vaultPath),
+    disconnect: () => ipcRenderer.invoke('vault:disconnect'),
+    getTree: () => ipcRenderer.invoke('vault:get-tree'),
+    getNotes: (options?: { tag?: string; search?: string }) =>
+      ipcRenderer.invoke('vault:get-notes', options),
+    getNoteDetail: (relativePath: string) =>
+      ipcRenderer.invoke('vault:get-note-detail', relativePath),
+    search: (query: string) => ipcRenderer.invoke('vault:search', query),
+    getTags: () => ipcRenderer.invoke('vault:get-tags'),
+    getBacklinks: (relativePath: string) =>
+      ipcRenderer.invoke('vault:get-backlinks', relativePath),
+    index: (options?: { force?: boolean }) =>
+      ipcRenderer.invoke('vault:index', options),
+    exportMessage: (options: any) =>
+      ipcRenderer.invoke('vault:export-message', options),
+    exportConversation: (messages: any[], options?: any) =>
+      ipcRenderer.invoke('vault:export-conversation', messages, options),
+    openInObsidian: (relativePath: string) =>
+      ipcRenderer.invoke('vault:open-in-obsidian', relativePath),
+    onIndexingProgress: (callback: (progress: any) => void) => {
+      const listener = (_event: any, progress: any) => callback(progress);
+      ipcRenderer.on('vault:indexing-progress', listener);
+      return () => ipcRenderer.removeListener('vault:indexing-progress', listener);
+    },
   },
 
   // Knowledge graph

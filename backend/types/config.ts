@@ -54,12 +54,21 @@ export interface FolderConfig {
   }>;
 }
 
+export interface ObsidianConfig {
+  vaultPath: string;
+  exportSubfolder: string;
+  ignorePatterns: string[];
+  autoIndex: boolean;
+  indexOnStartup: boolean;
+}
+
 export interface AppConfig {
   llm: LLMConfig;
   rag: RAGConfig;
   zotero?: ZoteroConfig;
   tropy?: TropyConfig;
   folders?: FolderConfig;
+  obsidian?: ObsidianConfig;
   recentWorkspaces: string[];
   language: 'fr' | 'en' | 'de';
   theme: 'light' | 'dark' | 'system';

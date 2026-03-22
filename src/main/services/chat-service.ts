@@ -5,6 +5,7 @@
  * Supports both simple RAG and agent mode with tool-use.
  */
 
+import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { documentService } from './document-service.js';
 import { configManager } from './config-manager.js';

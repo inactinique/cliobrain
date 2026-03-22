@@ -2,6 +2,7 @@
  * IPC handlers for chat and RAG
  */
 
+import crypto from 'crypto';
 import { ipcMain } from 'electron';
 import { chatService } from '../../services/chat-service.js';
 import { documentService } from '../../services/document-service.js';

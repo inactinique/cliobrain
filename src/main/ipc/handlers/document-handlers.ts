@@ -13,6 +13,8 @@ export function setupDocumentHandlers() {
           win?.webContents.send('document:indexing-progress', progress);
         },
       });
+      // Save HNSW after single-file ingestion via UI
+      documentService.pipeline?.saveIndex();
       return successResponse(doc);
     } catch (error) {
       return errorResponse(error);

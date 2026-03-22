@@ -145,7 +145,7 @@ export class DocumentIngestionPipeline {
         document: doc,
       }))
     );
-    this.hnswStore.save();
+    // Note: HNSW save is deferred to caller for batch efficiency
 
     // Add to BM25
     this.bm25Index.addChunks(
@@ -189,7 +189,19 @@ export class DocumentIngestionPipeline {
       }
     }
 
+    // Save HNSW once after batch
+    if (ingested > 0) {
+      this.hnswStore.save();
+    }
+
     return { ingested, skipped, errors };
+  }
+
+  /**
+   * Save HNSW index (called externally for single-file ingestion)
+   */
+  saveIndex(): void {
+    this.hnswStore.save();
   }
 
   /**

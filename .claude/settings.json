@@ -14,7 +14,10 @@
       "Bash(node -e \"import\\(''lucide-react''\\).then\\(m => console.log\\(''Vault'' in m, ''Warehouse'' in m, ''Archive'' in m, ''BookMarked'' in m\\)\\)\")",
       "Bash(rsvg-convert -w 1024 -h 1024 icon.svg -o icon.png)",
       "Bash(npx png-to-ico:*)",
-      "Bash(ls -lh /Users/frederic.clavert/GitHub/cliobrain/build/icon.*)"
+      "Bash(ls -lh /Users/frederic.clavert/GitHub/cliobrain/build/icon.*)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "Bash(git push:*)"
     ]
   }
 }

@@ -24,7 +24,7 @@
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
     "build:win": "npm run build && electron-builder --win",
-    "start": "env -u ELECTRON_RUN_AS_NODE npx electron . --no-sandbox",
+    "start": "env -u ELECTRON_RUN_AS_NODE npx electron . --no-sandbox --js-flags='--max-old-space-size=2048'",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "clean": "rm -rf dist release",

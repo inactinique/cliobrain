@@ -20,12 +20,20 @@ export function setupFilesystemHandlers() {
     }
   });
 
-  ipcMain.handle('dialog:open-directory', async () => {
+  ipcMain.handle('dialog:open-directory', async (_event, options?: any) => {
     try {
       const win = BrowserWindow.getFocusedWindow();
       if (!win) return errorResponse('No focused window');
+
+      const properties: any[] = ['openDirectory', 'createDirectory'];
+      // On macOS, treatPackageAsDirectory allows selecting .tropy, .app-like bundles
+      if (options?.treatPackageAsDirectory) {
+        properties.push('treatPackageAsDirectory');
+      }
+
       const result = await dialog.showOpenDialog(win, {
-        properties: ['openDirectory', 'createDirectory'],
+        properties,
+        message: options?.message,
       });
       return successResponse(result.canceled ? null : result.filePaths[0]);
     } catch (error) {

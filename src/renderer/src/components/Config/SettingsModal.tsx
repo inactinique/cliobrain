@@ -225,7 +225,10 @@ function TropySection({ config, onUpdate }: any) {
   const handleSelectProject = async () => {
     // Tropy projects can be .tropy directories or .tpy files
     // Use directory picker since .tropy is a directory package
-    const result = await window.electron.dialog.openDirectory();
+    const result = await window.electron.dialog.openDirectory({
+      treatPackageAsDirectory: true,
+      message: 'Sélectionnez le dossier .tropy ou le fichier .tpy',
+    });
     if (result.success && result.data) {
       onUpdate('tropy.projectPath', result.data);
     }

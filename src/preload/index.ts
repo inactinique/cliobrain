@@ -185,7 +185,8 @@ const api = {
   // Dialogs
   dialog: {
     openFile: (options: any) => ipcRenderer.invoke('dialog:open-file', options),
-    openDirectory: () => ipcRenderer.invoke('dialog:open-directory'),
+    openDirectory: (options?: { treatPackageAsDirectory?: boolean; message?: string }) =>
+      ipcRenderer.invoke('dialog:open-directory', options),
     saveFile: (options: any) => ipcRenderer.invoke('dialog:save-file', options),
   },
 

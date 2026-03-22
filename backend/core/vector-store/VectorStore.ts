@@ -15,7 +15,7 @@ export class VectorStore {
   constructor(dbPath: string) {
     this.dbPath = dbPath;
     this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
+    this.db.pragma('journal_mode = DELETE');
     this.db.pragma('foreign_keys = ON');
     this.createTables();
   }

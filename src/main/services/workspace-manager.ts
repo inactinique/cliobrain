@@ -9,6 +9,8 @@
 
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
+import { app } from 'electron';
 import type { WorkspaceConfig, WorkspaceMetadata } from '../../../backend/types/workspace.js';
 import { configManager } from './config-manager.js';
 import { documentService } from './document-service.js';
@@ -29,9 +31,25 @@ class WorkspaceManager {
     return this.currentWorkspacePath;
   }
 
-  get dataDir(): string | null {
+  /**
+   * Config dir: .cliobrain/ inside the workspace (synced, lightweight)
+   */
+  get configDir(): string | null {
     if (!this.currentWorkspacePath) return null;
     return path.join(this.currentWorkspacePath, WORKSPACE_DIR);
+  }
+
+  /**
+   * Data dir: local storage for DB and indexes (never cloud-synced)
+   * Located in ~/Library/Application Support/cliobrain/workspaces/<hash>/
+   * This avoids SQLite I/O errors on cloud-synced filesystems (OneDrive, iCloud, Dropbox)
+   */
+  get dataDir(): string | null {
+    if (!this.currentWorkspacePath) return null;
+    const hash = crypto.createHash('md5').update(this.currentWorkspacePath).digest('hex').substring(0, 12);
+    const localDir = path.join(app.getPath('userData'), 'workspaces', hash);
+    fs.mkdirSync(localDir, { recursive: true });
+    return localDir;
   }
 
   get databasePath(): string | null {
@@ -49,11 +67,10 @@ class WorkspaceManager {
   }
 
   async create(dirPath: string, name: string, language: 'fr' | 'en' | 'de' = 'fr'): Promise<WorkspaceMetadata> {
-    const dataDirPath = path.join(dirPath, WORKSPACE_DIR);
-    // Create directories
-    fs.mkdirSync(dataDirPath, { recursive: true });
+    const cfgDir = path.join(dirPath, WORKSPACE_DIR);
+    fs.mkdirSync(cfgDir, { recursive: true });
 
-    // Create workspace config
+    // Create workspace config (lightweight, lives in workspace dir — safe to sync)
     const config: WorkspaceConfig = {
       name,
       createdAt: new Date().toISOString(),
@@ -61,7 +78,7 @@ class WorkspaceManager {
       watchedFolders: [],
     };
 
-    const configPath = path.join(dataDirPath, WORKSPACE_CONFIG_FILE);
+    const configPath = path.join(cfgDir, WORKSPACE_CONFIG_FILE);
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
     // Add to recent workspaces
@@ -72,8 +89,8 @@ class WorkspaceManager {
   }
 
   async load(dirPath: string): Promise<WorkspaceMetadata> {
-    const dataDirPath = path.join(dirPath, WORKSPACE_DIR);
-    const configPath = path.join(dataDirPath, WORKSPACE_CONFIG_FILE);
+    const cfgDir = path.join(dirPath, WORKSPACE_DIR);
+    const configPath = path.join(cfgDir, WORKSPACE_CONFIG_FILE);
 
     if (!fs.existsSync(configPath)) {
       throw new Error(`No ClioBrain workspace found at ${dirPath}`);
@@ -83,8 +100,10 @@ class WorkspaceManager {
     this.currentConfig = JSON.parse(configContent) as WorkspaceConfig;
     this.currentWorkspacePath = dirPath;
 
-    // Initialize document service (SQLite, HNSW, BM25, Ollama)
-    await documentService.initialize(dataDirPath);
+    // Initialize document service with LOCAL data dir (not cloud-synced)
+    const localDataDir = this.dataDir!;
+    console.log(`[WorkspaceManager] Local data dir: ${localDataDir}`);
+    await documentService.initialize(localDataDir);
 
     // Auto-connect Obsidian vault if configured
     if (this.currentConfig.obsidian?.vaultPath) {
@@ -128,13 +147,13 @@ class WorkspaceManager {
   }
 
   updateConfig(updates: Partial<WorkspaceConfig>): void {
-    if (!this.currentConfig || !this.dataDir) {
+    if (!this.currentConfig || !this.configDir) {
       throw new Error('No workspace loaded');
     }
 
     this.currentConfig = { ...this.currentConfig, ...updates };
 
-    const configPath = path.join(this.dataDir, WORKSPACE_CONFIG_FILE);
+    const configPath = path.join(this.configDir, WORKSPACE_CONFIG_FILE);
     fs.writeFileSync(configPath, JSON.stringify(this.currentConfig, null, 2), 'utf-8');
   }
 

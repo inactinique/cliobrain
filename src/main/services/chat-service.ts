@@ -45,9 +45,9 @@ class ChatService {
 
     try {
       if (useAgent) {
-        await this.sendWithAgent(message, language, topK, win);
+        await this.sendWithAgent(message, language, topK, win, options);
       } else {
-        await this.sendWithRAG(message, language, topK, win);
+        await this.sendWithRAG(message, language, topK, win, options);
       }
     } catch (error) {
       if ((error as any)?.name === 'AbortError') {
@@ -69,7 +69,8 @@ class ChatService {
     message: string,
     language: PromptLanguage,
     topK: number,
-    win: BrowserWindow
+    win: BrowserWindow,
+    options?: { sessionId?: string }
   ): Promise<void> {
     const searchStart = Date.now();
 
@@ -161,8 +162,23 @@ class ChatService {
       ragExplanation,
     });
 
-    // Persist to DB if session exists
-    // TODO: Save to conversation_sessions/messages via VectorStore
+    // Persist messages to DB
+    if (options?.sessionId && documentService.store) {
+      documentService.store.addMessage({
+        id: crypto.randomUUID(),
+        sessionId: options.sessionId,
+        role: 'user',
+        content: message,
+      });
+      documentService.store.addMessage({
+        id: crypto.randomUUID(),
+        sessionId: options.sessionId,
+        role: 'assistant',
+        content: fullContent,
+        sources: chatSources,
+        ragExplanation,
+      });
+    }
   }
 
   /**
@@ -172,7 +188,8 @@ class ChatService {
     message: string,
     language: PromptLanguage,
     topK: number,
-    win: BrowserWindow
+    win: BrowserWindow,
+    options?: { sessionId?: string }
   ): Promise<void> {
     const agent = new AgentOrchestrator(documentService.ollama!, language);
 
@@ -225,17 +242,37 @@ class ChatService {
       sourceType: r.document.sourceType === 'obsidian-note' ? 'note' as const : 'document' as const,
     }));
 
+    const ragExplanation = {
+      agent: {
+        iterations: result.iterations,
+        toolsUsed: result.steps.filter(s => s.toolName).map(s => s.toolName!),
+        totalDurationMs: result.totalDurationMs,
+      },
+    };
+
     win.webContents.send('chat:stream-done', {
       content: result.answer,
       sources: chatSources,
-      ragExplanation: {
-        agent: {
-          iterations: result.iterations,
-          toolsUsed: result.steps.filter(s => s.toolName).map(s => s.toolName!),
-          totalDurationMs: result.totalDurationMs,
-        },
-      },
+      ragExplanation,
     });
+
+    // Persist messages to DB
+    if (options?.sessionId && documentService.store) {
+      documentService.store.addMessage({
+        id: crypto.randomUUID(),
+        sessionId: options.sessionId,
+        role: 'user',
+        content: message,
+      });
+      documentService.store.addMessage({
+        id: crypto.randomUUID(),
+        sessionId: options.sessionId,
+        role: 'assistant',
+        content: result.answer,
+        sources: chatSources,
+        ragExplanation,
+      });
+    }
   }
 
   /**

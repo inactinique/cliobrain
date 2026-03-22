@@ -223,21 +223,21 @@ function ZoteroSection({ config, onUpdate }: any) {
 
 function TropySection({ config, onUpdate }: any) {
   const handleSelectProject = async () => {
-    const result = await window.electron.dialog.openFile({
-      filters: [{ name: 'Tropy', extensions: ['tpy'] }],
-    });
-    if (result.success && result.data?.[0]) {
-      onUpdate('tropy.projectPath', result.data[0]);
+    // Tropy projects can be .tropy directories or .tpy files
+    // Use directory picker since .tropy is a directory package
+    const result = await window.electron.dialog.openDirectory();
+    if (result.success && result.data) {
+      onUpdate('tropy.projectPath', result.data);
     }
   };
 
   return (
     <>
       <p className="text-xs text-gray-500 mb-3">
-        Connectez un projet Tropy pour indexer vos sources primaires.
+        Connectez un projet Tropy (.tropy ou .tpy) pour indexer vos sources primaires.
       </p>
       <div className="flex items-center gap-2">
-        <Field label="Tropy Project (.tpy)" value={config.tropy?.projectPath || ''} onChange={v => onUpdate('tropy.projectPath', v)} />
+        <Field label="Projet Tropy (.tropy ou .tpy)" value={config.tropy?.projectPath || ''} onChange={v => onUpdate('tropy.projectPath', v)} />
         <button onClick={handleSelectProject} className="mt-5 px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 shrink-0">
           Parcourir
         </button>

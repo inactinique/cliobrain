@@ -17,7 +17,14 @@
       "Bash(ls -lh /Users/frederic.clavert/GitHub/cliobrain/build/icon.*)",
       "Bash(gh auth:*)",
       "Bash(gh repo:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Read(//Users/frederic.clavert/**)",
+      "Bash(sqlite3 \"/Users/frederic.clavert/Documents/comité.tropy/project.tpy\" \".tables\")",
+      "Bash(sqlite3 \"/Users/frederic.clavert/Documents/comité.tropy/project.tpy\" \"SELECT COUNT\\(*\\) as items FROM items; SELECT COUNT\\(*\\) as photos FROM photos; SELECT COUNT\\(*\\) as notes FROM notes; SELECT COUNT\\(*\\) as transcriptions FROM transcriptions; SELECT COUNT\\(*\\) as tags FROM tags;\")",
+      "Bash(sqlite3 \"/Users/frederic.clavert/Documents/comité.tropy/project.tpy\" \"SELECT i.id, m.property, mv.text FROM items i JOIN metadata m ON i.id = m.id JOIN metadata_values mv ON m.value_id = mv.value_id LIMIT 20;\")",
+      "Bash(sqlite3 \"/Users/frederic.clavert/Documents/comité.tropy/project.tpy\" \"SELECT p.id, p.item_id, p.path, p.protocol, p.filename FROM photos LIMIT 5;\")",
+      "Bash(sqlite3 \"/Users/frederic.clavert/Documents/comité.tropy/project.tpy\" \"PRAGMA table_info\\(photos\\);\")",
+      "Bash(sqlite3 \"/Users/frederic.clavert/Documents/comité.tropy/project.tpy\" \"SELECT id, item_id, path, protocol, filename FROM photos LIMIT 5;\")"
     ]
   }
 }

@@ -36,3 +36,5 @@ yarn-error.log*
 
 # Workspace data (local to each user)
 .cliobrain/
+.claude/settings.json
+/.claude

@@ -16,6 +16,7 @@ import { setupVaultHandlers } from './handlers/vault-handlers.js';
 import { setupGraphHandlers } from './handlers/graph-handlers.js';
 import { setupHistoryHandlers } from './handlers/history-handlers.js';
 import { setupFilesystemHandlers } from './handlers/filesystem-handlers.js';
+import { setupMcpHandlers } from './handlers/mcp-handlers.js';
 
 /**
  * Setup all IPC handlers
@@ -33,8 +34,9 @@ import { setupFilesystemHandlers } from './handlers/filesystem-handlers.js';
  * - Knowledge graph (4 handlers)
  * - History and sessions (5 handlers)
  * - Filesystem and dialogs (5 handlers)
+ * - MCP server control (4 handlers)
  *
- * Total: ~61 IPC handlers
+ * Total: ~65 IPC handlers
  */
 export function setupIPCHandlers() {
   console.log('[ClioBrain] Setting up IPC handlers...');
@@ -51,6 +53,7 @@ export function setupIPCHandlers() {
   setupGraphHandlers();
   setupHistoryHandlers();
   setupFilesystemHandlers();
+  setupMcpHandlers();
 
   console.log('[ClioBrain] All IPC handlers registered');
 }

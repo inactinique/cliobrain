@@ -7,16 +7,18 @@ import { SourcesPanel } from '../Sources/SourcesPanel';
 import { VaultBrowserPanel } from '../Vault/VaultBrowserPanel';
 import { GraphPanel } from '../Graph/GraphPanel';
 import { HistoryPanel } from '../History/HistoryPanel';
+import { McpPanel } from '../Mcp/McpPanel';
 import { WelcomeScreen } from './WelcomeScreen';
 import {
   BookOpen,
   Vault,
   Network,
   History,
+  Server,
 } from 'lucide-react';
 
 type LeftTab = 'sources' | 'vault';
-type RightTab = 'graph' | 'history';
+type RightTab = 'graph' | 'history' | 'mcp';
 
 export function MainLayout() {
   const { t } = useTranslation();
@@ -79,10 +81,17 @@ export function MainLayout() {
               icon={<History size={16} />}
               label={t('history.title')}
             />
+            <TabButton
+              active={rightTab === 'mcp'}
+              onClick={() => setRightTab('mcp')}
+              icon={<Server size={16} />}
+              label={t('mcp.tab')}
+            />
           </div>
           <div className="flex-1 overflow-hidden">
             {rightTab === 'graph' && <GraphPanel />}
             {rightTab === 'history' && <HistoryPanel />}
+            {rightTab === 'mcp' && <McpPanel />}
           </div>
         </div>
       </Panel>

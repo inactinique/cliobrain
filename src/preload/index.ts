@@ -201,6 +201,14 @@ const api = {
     openPath: (filePath: string) => ipcRenderer.invoke('shell:open-path', filePath),
   },
 
+  // MCP server control
+  mcp: {
+    getStatus: () => ipcRenderer.invoke('mcp:get-status'),
+    getLogs: (limit?: number) => ipcRenderer.invoke('mcp:get-logs', limit),
+    getClaudeDesktopConfig: () => ipcRenderer.invoke('mcp:get-claude-desktop-config'),
+    getClaudeCodeConfig: () => ipcRenderer.invoke('mcp:get-claude-code-config'),
+  },
+
   // Generic IPC (filtered by whitelist)
   ipcRenderer: {
     on: (channel: string, listener: (...args: any[]) => void) => {

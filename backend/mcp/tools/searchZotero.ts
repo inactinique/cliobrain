@@ -20,7 +20,7 @@ export function registerSearchZotero(server: McpServer, services: McpServices, l
       author: z.string().optional().describe('Filter by author name'),
       tags: z.array(z.string()).optional().describe('Filter by tags'),
       year: z.number().optional().describe('Publication year'),
-      limit: z.number().optional().default(20).describe('Maximum results (default: 20)'),
+      limit: z.number().min(1).max(100).optional().default(20).describe('Maximum results (default: 20, max: 100)'),
     },
     async ({ query, author, tags, year, limit }) => {
       try {
@@ -50,13 +50,19 @@ async function searchIndexedZotero(
   filters: { query?: string; author?: string; tags?: string[]; year?: number; limit: number },
   logger: McpLogger,
 ) {
-  const db = services.vectorStore as any;
+  const db = services.vectorStore.database;
+  if (!db) {
+    return {
+      content: [{ type: 'text' as const, text: 'Database not available.' }],
+      isError: true,
+    };
+  }
 
   // Get all Zotero documents from the database
-  let stmt = db.db?.prepare?.(
+  const stmt = db.prepare(
     "SELECT id, title, author, year, file_path, metadata_json, source_ref FROM documents WHERE source_type = 'zotero'"
   );
-  let docs: any[] = stmt?.all() || [];
+  let docs: any[] = stmt.all();
 
   if (docs.length === 0) {
     return {
@@ -108,10 +114,10 @@ async function searchIndexedZotero(
     let contentMatchIds = new Set<string>();
     try {
       const queryEmbedding = await services.ollamaClient.generateEmbedding(filters.query);
-      const searchResults = services.hybridSearch.search(queryEmbedding, filters.query, filters.limit * 3);
+      const searchResults = services.hybridSearch.search(queryEmbedding, filters.query, filters.limit * 2);
       for (const r of searchResults) {
         const fullDoc = services.vectorStore.getDocument(r.chunk.documentId);
-        if (fullDoc?.sourceType === 'zotero') {
+        if (fullDoc && fullDoc.sourceType === 'zotero') {
           contentMatchIds.add(fullDoc.id);
         }
       }
@@ -127,7 +133,7 @@ async function searchIndexedZotero(
   }
 
   // Get first chunk content as excerpt for each document
-  const excerptStmt = db.db?.prepare?.(
+  const excerptStmt = db.prepare(
     'SELECT content FROM chunks WHERE document_id = ? ORDER BY chunk_index ASC LIMIT 1'
   );
 
@@ -140,7 +146,7 @@ async function searchIndexedZotero(
     tags: d.metadata?.tags,
     doi: d.metadata?.DOI,
     url: d.metadata?.url,
-    excerpt: excerptStmt?.get(d.id)?.content?.substring(0, 300),
+    excerpt: (excerptStmt.get(d.id) as any)?.content?.substring(0, 300),
   }));
 
   logger.log({

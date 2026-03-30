@@ -11,7 +11,12 @@ import { successResponse, errorResponse } from '../utils/error-handler.js';
 export function setupChatHandlers() {
   ipcMain.handle('chat:send', async (_event, message: string, options?: any) => {
     try {
-      // Fire and forget — response comes via streaming events
+      // Validate initialization before firing off the async pipeline.
+      // The actual response comes via streaming events (chat:stream, chat:stream-done, chat:stream-error).
+      if (!documentService.isInitialized) {
+        return errorResponse('No workspace loaded — open a workspace first');
+      }
+
       chatService.send(message, options).catch(e =>
         console.error('[Chat] Send error:', e)
       );

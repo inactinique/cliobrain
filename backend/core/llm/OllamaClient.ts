@@ -5,6 +5,8 @@
  */
 
 const MAX_TEXT_LENGTH = 2000;
+const EMBEDDING_TIMEOUT_MS = 30_000;
+const GENERATION_TIMEOUT_MS = 120_000;
 
 export interface OllamaClientConfig {
   baseURL: string;
@@ -54,6 +56,7 @@ export class OllamaClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: this.embeddingModel, prompt: text }),
+      signal: AbortSignal.timeout(EMBEDDING_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -87,6 +90,7 @@ export class OllamaClient {
           ...options,
         },
       }),
+      signal: AbortSignal.timeout(GENERATION_TIMEOUT_MS),
     });
 
     if (!response.ok) {

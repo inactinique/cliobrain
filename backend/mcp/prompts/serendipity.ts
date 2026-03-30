@@ -54,11 +54,30 @@ export function registerSerendipity(server: McpServer, services: McpServices, lo
           .slice(0, 5);
 
         if (relatedNodes.length > 0) {
+          // Pre-index edges by source/target for O(1) lookup (same pattern as exploreGraph.ts)
+          const edgesByNode = new Map<string, typeof graphData.edges>();
+          for (const edge of graphData.edges) {
+            let sourceList = edgesByNode.get(edge.source);
+            if (!sourceList) {
+              sourceList = [];
+              edgesByNode.set(edge.source, sourceList);
+            }
+            sourceList.push(edge);
+
+            let targetList = edgesByNode.get(edge.target);
+            if (!targetList) {
+              targetList = [];
+              edgesByNode.set(edge.target, targetList);
+            }
+            targetList.push(edge);
+          }
+
           const neighborIds = new Set<string>();
           for (const node of relatedNodes) {
-            for (const edge of graphData.edges) {
-              if (edge.source === node.id) neighborIds.add(edge.target);
-              if (edge.target === node.id) neighborIds.add(edge.source);
+            const connectedEdges = edgesByNode.get(node.id) || [];
+            for (const edge of connectedEdges) {
+              const neighborId = edge.source === node.id ? edge.target : edge.source;
+              neighborIds.add(neighborId);
             }
           }
           const neighbors = graphData.nodes

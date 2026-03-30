@@ -22,23 +22,26 @@ export function registerGetEntityContext(server: McpServer, services: McpService
     },
     async ({ entity, entityType }) => {
       try {
-        const db = services.vectorStore as any;
+        const db = services.vectorStore.database;
+        if (!db) {
+          return {
+            content: [{ type: 'text' as const, text: 'Database not available.' }],
+            isError: true,
+          };
+        }
 
         // Search entities in the database
         const entityLower = entity.toLowerCase();
-        let entitiesStmt;
         let entities: any[];
 
         if (entityType) {
-          entitiesStmt = db.db?.prepare?.(
+          entities = db.prepare(
             'SELECT * FROM entities WHERE (LOWER(name) LIKE ? OR LOWER(normalized_name) LIKE ?) AND type = ?'
-          );
-          entities = entitiesStmt?.all(`%${entityLower}%`, `%${entityLower}%`, entityType) || [];
+          ).all(`%${entityLower}%`, `%${entityLower}%`, entityType);
         } else {
-          entitiesStmt = db.db?.prepare?.(
+          entities = db.prepare(
             'SELECT * FROM entities WHERE LOWER(name) LIKE ? OR LOWER(normalized_name) LIKE ?'
-          );
-          entities = entitiesStmt?.all(`%${entityLower}%`, `%${entityLower}%`) || [];
+          ).all(`%${entityLower}%`, `%${entityLower}%`);
         }
 
         if (entities.length === 0) {
@@ -48,7 +51,7 @@ export function registerGetEntityContext(server: McpServer, services: McpService
         }
 
         // Get mentions for each entity
-        const mentionsStmt = db.db?.prepare?.(
+        const mentionsStmt = db.prepare(
           'SELECT em.*, c.content AS chunk_content, c.document_id, d.title AS doc_title, d.source_type ' +
           'FROM entity_mentions em ' +
           'LEFT JOIN chunks c ON em.chunk_id = c.id ' +
@@ -57,7 +60,7 @@ export function registerGetEntityContext(server: McpServer, services: McpService
         );
 
         const entityResults = entities.map((ent: any) => {
-          const mentions = mentionsStmt?.all(ent.id) || [];
+          const mentions = mentionsStmt.all(ent.id) as any[];
 
           // Deduplicate documents
           const docMap = new Map<string, any>();
@@ -113,20 +116,33 @@ export function registerGetEntityContext(server: McpServer, services: McpService
           // Graph might not be available
         }
 
-        // Get associated tags
+        // Get associated tags from both Obsidian vault_notes and document metadata
         const tagSet = new Set<string>();
+        const noteTagsStmt = db.prepare(
+          'SELECT tags_json FROM vault_notes WHERE relative_path IN (SELECT file_path FROM documents WHERE title = ?)'
+        );
+        const docMetaStmt = db.prepare(
+          'SELECT metadata_json FROM documents WHERE title = ?'
+        );
         for (const ent of entityResults) {
           for (const doc of ent.documents) {
-            // Check if the document has tags in vault_notes
-            const noteStmt = db.db?.prepare?.(
-              'SELECT tags_json FROM vault_notes WHERE id IN (SELECT id FROM documents WHERE title = ?)'
-            );
-            const noteRow = noteStmt?.get(doc.title);
+            // Obsidian tags
+            const noteRow = noteTagsStmt.get(doc.title) as any;
             if (noteRow?.tags_json) {
               try {
                 const noteTags = JSON.parse(noteRow.tags_json);
                 noteTags.forEach((t: string) => tagSet.add(t));
-              } catch { /* ignore */ }
+              } catch { /* Invalid JSON */ }
+            }
+            // Zotero/other document metadata tags
+            const metaRow = docMetaStmt.get(doc.title) as any;
+            if (metaRow?.metadata_json) {
+              try {
+                const meta = JSON.parse(metaRow.metadata_json);
+                if (Array.isArray(meta.tags)) {
+                  meta.tags.forEach((t: string) => tagSet.add(t));
+                }
+              } catch { /* Invalid JSON */ }
             }
           }
         }

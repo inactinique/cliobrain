@@ -93,6 +93,23 @@ export class PDFExtractor {
   async extract(filePath: string): Promise<PDFExtractionResult> {
     const pdfjs = await initPdfjs();
 
+    // Suppress noisy pdfjs-dist warnings (bad metadata, missing fonts, TrueType issues)
+    // These are harmless and clutter the console during bulk ingestion.
+    const originalWarn = console.warn;
+    console.warn = (...args: any[]) => {
+      const msg = typeof args[0] === 'string' ? args[0] : '';
+      if (msg.startsWith('Warning:')) return; // pdfjs warnings all start with "Warning:"
+      originalWarn.apply(console, args);
+    };
+
+    try {
+      return await this.extractInternal(pdfjs, filePath);
+    } finally {
+      console.warn = originalWarn;
+    }
+  }
+
+  private async extractInternal(pdfjs: any, filePath: string): Promise<PDFExtractionResult> {
     const fileBuffer = fs.readFileSync(filePath);
     const data = new Uint8Array(fileBuffer);
 

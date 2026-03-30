@@ -20,13 +20,20 @@ export function registerSearchObsidian(server: McpServer, services: McpServices,
       linkedTo: z.string().optional().describe('Find notes linked to this note via [[wikilinks]]'),
       frontmatterKey: z.string().optional().describe('Frontmatter key to search'),
       frontmatterValue: z.string().optional().describe('Frontmatter value to match'),
-      limit: z.number().optional().default(20).describe('Maximum results (default: 20)'),
+      limit: z.number().min(1).max(100).optional().default(20).describe('Maximum results (default: 20, max: 100)'),
     },
     async ({ query, tags, linkedTo, frontmatterKey, frontmatterValue, limit }) => {
       try {
         // Get all vault notes from the database
-        const db = services.vectorStore as any;
-        const stmt = db.db?.prepare?.(
+        const db = services.vectorStore.database;
+        if (!db) {
+          return {
+            content: [{ type: 'text' as const, text: 'Database not available.' }],
+            isError: true,
+          };
+        }
+
+        const stmt = db.prepare(
           'SELECT id, relative_path, title, frontmatter_json, tags_json, wikilinks_json, file_hash, file_mtime FROM vault_notes'
         );
 
@@ -87,14 +94,16 @@ export function registerSearchObsidian(server: McpServer, services: McpServices,
 
           // Then search in content via the search pipeline
           const queryEmbedding = await services.ollamaClient.generateEmbedding(query);
-          const searchResults = services.hybridSearch.search(queryEmbedding, query, limit * 3);
+          const searchResults = services.hybridSearch.search(queryEmbedding, query, limit * 2);
           // Enrich with full document metadata (HNSW may have incomplete data)
-          for (const r of searchResults) {
+          // Filter out orphaned chunks where getDocument returns null
+          const enrichedResults = searchResults.filter(r => {
             const fullDoc = services.vectorStore.getDocument(r.chunk.documentId);
-            if (fullDoc) r.document = fullDoc;
-          }
+            if (fullDoc) { r.document = fullDoc; return true; }
+            return false;
+          });
           const noteDocIds = new Set(
-            searchResults
+            enrichedResults
               .filter(r => r.document.sourceType === 'obsidian-note')
               .map(r => r.document.id)
           );

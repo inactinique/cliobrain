@@ -31,6 +31,7 @@ const api = {
     getRecent: () => ipcRenderer.invoke('workspace:get-recent'),
     getConfig: () => ipcRenderer.invoke('workspace:get-config'),
     updateConfig: (updates: any) => ipcRenderer.invoke('workspace:update-config', updates),
+    removeRecent: (dirPath: string) => ipcRenderer.invoke('workspace:remove-recent', dirPath),
   },
 
   // Documents
@@ -187,6 +188,7 @@ const api = {
     openFile: (options: any) => ipcRenderer.invoke('dialog:open-file', options),
     openDirectory: (options?: { treatPackageAsDirectory?: boolean; message?: string }) =>
       ipcRenderer.invoke('dialog:open-directory', options),
+    openTropy: () => ipcRenderer.invoke('dialog:open-tropy'),
     saveFile: (options: any) => ipcRenderer.invoke('dialog:save-file', options),
   },
 
@@ -215,7 +217,7 @@ const api = {
       if (ALLOWED_RECEIVE_CHANNELS.includes(channel)) {
         ipcRenderer.on(channel, listener);
       } else {
-        console.warn(`[Preload] Blocked ipcRenderer.on() for unauthorized channel: ${channel}`);
+        console.error(`[Preload] Blocked ipcRenderer.on() for unauthorized channel: ${channel}`);
       }
     },
     removeListener: (channel: string, listener: (...args: any[]) => void) => {
@@ -227,7 +229,7 @@ const api = {
       if (ALLOWED_SEND_CHANNELS.includes(channel)) {
         ipcRenderer.send(channel, ...args);
       } else {
-        console.warn(`[Preload] Blocked ipcRenderer.send() for unauthorized channel: ${channel}`);
+        console.error(`[Preload] Blocked ipcRenderer.send() for unauthorized channel: ${channel}`);
       }
     },
   },

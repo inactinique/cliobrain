@@ -92,6 +92,14 @@ async function main() {
     chatModel: config.app.llm.ollamaChatModel,
   });
 
+  // Healthcheck: verify Ollama is reachable
+  try {
+    const models = await ollamaClient.listModels();
+    console.error(`[ClioBrain MCP] Ollama OK — ${models.length} models available`);
+  } catch (e) {
+    console.error(`[ClioBrain MCP] WARNING: Ollama not reachable at ${config.app.llm.ollamaURL}. Semantic search will fail.`);
+  }
+
   // Build service container
   const services: McpServices = {
     vectorStore,
@@ -105,6 +113,63 @@ async function main() {
   // Create MCP server with all tools
   const { server, logger } = createMcpServer(config, services);
 
+  // --- Hot-reload: watch for index changes from Electron ---
+  // When the Electron app ingests documents, it saves the HNSW index to disk.
+  // We watch the metadata file and reload indexes when it changes.
+  const metaWatchPath = metaPath;
+  let reloadDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  let isReloading = false;
+  const reloadIndexes = async () => {
+    if (isReloading) return; // Prevent concurrent reloads
+    isReloading = true;
+
+    try {
+      console.error('[ClioBrain MCP] Index change detected, reloading...');
+
+      // Read fresh chunks from SQLite first, before clearing anything
+      const freshChunks = vectorStore.getAllChunksWithEmbeddings();
+
+      // Only clear and rebuild if we got data (fallback: keep old indexes on failure)
+      hnswStore.clear();
+      await hnswStore.initialize();
+
+      bm25Index.clear();
+      if (freshChunks.length > 0) {
+        hnswStore.addChunks(freshChunks.map(c => ({ chunk: c.chunk, embedding: c.embedding })));
+        bm25Index.addChunks(freshChunks.map(c => ({ chunk: c.chunk })));
+      }
+
+      console.error(`[ClioBrain MCP] Reloaded: HNSW=${hnswStore.size} vectors, BM25=${freshChunks.length} chunks`);
+    } catch (err) {
+      console.error('[ClioBrain MCP] Index reload failed (keeping previous indexes):', err);
+    } finally {
+      isReloading = false;
+    }
+  };
+
+  // Watch for HNSW metadata changes (debounced to avoid rapid reloads)
+  const watchers: fs.FSWatcher[] = [];
+  if (fs.existsSync(metaWatchPath)) {
+    const metaWatcher = fs.watch(metaWatchPath, () => {
+      if (reloadDebounce) clearTimeout(reloadDebounce);
+      reloadDebounce = setTimeout(reloadIndexes, 2000);
+    });
+    watchers.push(metaWatcher);
+    console.error(`[ClioBrain MCP] Watching ${path.basename(metaWatchPath)} for index updates`);
+  }
+
+  // Also watch the database file for new documents (covers cases where HNSW isn't rebuilt yet)
+  const dbWatchPath = dbPath;
+  let dbReloadDebounce: ReturnType<typeof setTimeout> | null = null;
+  if (fs.existsSync(dbWatchPath)) {
+    const dbWatcher = fs.watch(dbWatchPath, () => {
+      if (dbReloadDebounce) clearTimeout(dbReloadDebounce);
+      dbReloadDebounce = setTimeout(reloadIndexes, 5000);
+    });
+    watchers.push(dbWatcher);
+  }
+
   // Connect stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -114,6 +179,10 @@ async function main() {
   // Graceful shutdown
   const shutdown = () => {
     console.error('[ClioBrain MCP] Shutting down...');
+    // Close file watchers to avoid leaking file descriptors
+    for (const w of watchers) {
+      try { w.close(); } catch { /* ignore */ }
+    }
     logger.close();
     hnswStore.save();
     vectorStore.close();

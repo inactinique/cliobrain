@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { TropyReader } from '../../../../backend/integrations/tropy/TropyReader.js';
+import { DocumentChunker } from '../../../../backend/core/ingestion/DocumentChunker.js';
 import { documentService } from '../../services/document-service.js';
 import { successResponse, errorResponse } from '../utils/error-handler.js';
 
@@ -51,12 +52,12 @@ export function setupTropyHandlers() {
         // For now, index only text content (notes + metadata)
 
         try {
-          // Create a temporary text representation for indexing
           const title = item.metadata.title || item.metadata['dc:title'] || `Tropy item ${item.id}`;
 
-          if (documentService.store && documentService.pipeline) {
-            // Store as a document directly
+          if (documentService.store && documentService.ollama && documentService.hnsw && documentService.bm25) {
             const documentId = `tropy-${item.id}`;
+
+            // Store document metadata
             documentService.store.addDocument({
               id: documentId,
               filePath: `tropy://${item.id}`,
@@ -69,13 +70,39 @@ export function setupTropyHandlers() {
               indexedAt: new Date().toISOString(),
             });
 
-            // Chunk and embed the text content
-            // This is simplified - full implementation would use the pipeline
+            // Chunk the text content
+            const chunker = new DocumentChunker();
+            const chunks = chunker.chunkText(documentId, text);
+
+            // Generate embeddings in batches of 16
+            const BATCH_SIZE = 16;
+            const chunksWithEmbeddings: Array<{ chunk: typeof chunks[0]; embedding: Float32Array }> = [];
+
+            for (let b = 0; b < chunks.length; b += BATCH_SIZE) {
+              const batch = chunks.slice(b, b + BATCH_SIZE);
+              const embeddings = await documentService.ollama.generateEmbeddings(
+                batch.map(c => c.content)
+              );
+              for (let j = 0; j < batch.length; j++) {
+                chunksWithEmbeddings.push({ chunk: batch[j], embedding: embeddings[j] });
+              }
+            }
+
+            // Store in SQLite, HNSW, and BM25
+            documentService.store.addChunks(chunksWithEmbeddings, 'tropy');
+            documentService.hnsw.addChunks(chunksWithEmbeddings);
+            documentService.bm25.addChunks(chunks.map(c => ({ chunk: c })));
+
             synced++;
           }
-        } catch {
-          // Skip errors
+        } catch (e) {
+          console.error(`[Tropy] Failed to index item ${item.id}:`, e);
         }
+      }
+
+      // Save HNSW index after batch ingestion
+      if (synced > 0) {
+        documentService.hnsw?.save();
       }
 
       return successResponse({ synced, total: items.length });

@@ -74,8 +74,9 @@ export class KnowledgeGraphBuilder {
             graph.setNodeAttribute(nodeId, 'community', community);
           }
         }
-      } catch {
-        // Louvain can fail on disconnected or trivial graphs
+      } catch (e) {
+        // Louvain can fail on disconnected or trivial graphs — non-critical
+        console.error('[KnowledgeGraph] Louvain community detection failed:', e);
       }
     }
 
@@ -146,7 +147,9 @@ export class KnowledgeGraphBuilder {
                 type: 'mention',
                 weight: 1,
               });
-            } catch { /* edge may already exist */ }
+            } catch {
+              // Edge may already exist in the graph — safe to ignore duplicate insertion
+            }
           }
         }
       }
@@ -174,7 +177,9 @@ export class KnowledgeGraphBuilder {
               type: 'co-occurrence',
               weight: row.weight,
             });
-          } catch { /* ignore */ }
+          } catch {
+            // Edge may already exist in the graph — safe to ignore duplicate insertion
+          }
         }
       }
     }
@@ -205,7 +210,9 @@ export class KnowledgeGraphBuilder {
               type: 'link',
               weight: 1,
             });
-          } catch { /* ignore */ }
+          } catch {
+            // Edge may already exist in the graph — safe to ignore duplicate insertion
+          }
         }
       }
     }
@@ -218,7 +225,12 @@ export class KnowledgeGraphBuilder {
 
     for (const row of tagRows) {
       let tags: string[];
-      try { tags = JSON.parse(row.tags_json); } catch { continue; }
+      try {
+        tags = JSON.parse(row.tags_json);
+      } catch {
+        // Malformed tags_json in DB row — skip this note's tags
+        continue;
+      }
       if (!tags || tags.length === 0) continue;
 
       const docNodeId = `doc:${row.id}`;
@@ -242,7 +254,9 @@ export class KnowledgeGraphBuilder {
                 type: 'mention',
                 weight: 1,
               });
-            } catch { /* ignore */ }
+            } catch {
+              // Edge may already exist in the graph — safe to ignore duplicate insertion
+            }
           }
         }
       }

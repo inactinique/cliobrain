@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown, FileText, Folder } from 'lucide-react';
 
 interface VaultTreeNode {
@@ -14,10 +15,11 @@ interface VaultTreeViewProps {
 }
 
 export function VaultTreeView({ tree, onSelectNote }: VaultTreeViewProps) {
+  const { t } = useTranslation();
   if (tree.length === 0) {
     return (
-      <div className="p-4 text-center text-xs text-gray-400">
-        Vault vide
+      <div className="p-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+        {t('vault.empty')}
       </div>
     );
   }

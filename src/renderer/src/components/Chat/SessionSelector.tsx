@@ -19,6 +19,7 @@ export function SessionSelector() {
           onChange={(e) => { if (e.target.value) loadSession(e.target.value); }}
           className="text-sm bg-transparent border-none focus:outline-none cursor-pointer"
           style={{ color: 'var(--text-secondary)' }}
+          aria-label={t('chat.newSession')}
         >
           {!currentSessionId && <option value="">{t('chat.newSession')}</option>}
           {sessions.map((s) => (

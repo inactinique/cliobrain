@@ -89,6 +89,12 @@ class WorkspaceManager {
   }
 
   async load(dirPath: string): Promise<WorkspaceMetadata> {
+    // Close previous workspace if switching to a different one
+    if (this.currentWorkspacePath && this.currentWorkspacePath !== dirPath) {
+      console.log(`[WorkspaceManager] Closing previous workspace before loading new one`);
+      await this.close();
+    }
+
     const cfgDir = path.join(dirPath, WORKSPACE_DIR);
     const configPath = path.join(cfgDir, WORKSPACE_CONFIG_FILE);
 
@@ -131,8 +137,16 @@ class WorkspaceManager {
       vaultNoteCount: stats?.noteCount,
     };
 
+    // Persist lastOpenedAt into workspace config
+    this.currentConfig.lastOpenedAt = new Date().toISOString();
+    const configFilePath = path.join(cfgDir, WORKSPACE_CONFIG_FILE);
+    fs.writeFileSync(configFilePath, JSON.stringify(this.currentConfig, null, 2), 'utf-8');
+
     // Update recent workspaces
     this.addToRecent(dirPath, this.currentConfig.name);
+
+    // Auto-update Claude Desktop MCP config to point to this workspace
+    this.updateClaudeDesktopMcpConfig(dirPath);
 
     console.log(`[WorkspaceManager] Loaded workspace: ${this.currentConfig.name} at ${dirPath}`);
     return metadata;
@@ -159,26 +173,92 @@ class WorkspaceManager {
 
   getRecent(): WorkspaceMetadata[] {
     const recent = configManager.get('recentWorkspaces') as string[] || [];
-    return recent
-      .filter(p => {
-        const configPath = path.join(p, WORKSPACE_DIR, WORKSPACE_CONFIG_FILE);
-        return fs.existsSync(configPath);
-      })
-      .map(p => {
-        try {
-          const configPath = path.join(p, WORKSPACE_DIR, WORKSPACE_CONFIG_FILE);
-          const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as WorkspaceConfig;
-          return {
-            name: config.name,
-            path: p,
-            createdAt: config.createdAt,
-            lastOpenedAt: config.createdAt,
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter((m): m is WorkspaceMetadata => m !== null);
+
+    // Filter out workspaces that no longer exist on disk
+    const validPaths: string[] = [];
+    const results: WorkspaceMetadata[] = [];
+
+    for (const p of recent) {
+      const configPath = path.join(p, WORKSPACE_DIR, WORKSPACE_CONFIG_FILE);
+      if (!fs.existsSync(configPath)) continue;
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as WorkspaceConfig;
+        validPaths.push(p);
+        results.push({
+          name: config.name,
+          path: p,
+          createdAt: config.createdAt,
+          lastOpenedAt: config.lastOpenedAt || config.createdAt,
+        });
+      } catch {
+        // Corrupt config — skip
+      }
+    }
+
+    // Persist the cleaned list if stale entries were removed
+    if (validPaths.length !== recent.length) {
+      configManager.set('recentWorkspaces', validPaths);
+    }
+
+    return results;
+  }
+
+  removeFromRecent(dirPath: string): void {
+    const recent = configManager.get('recentWorkspaces') as string[] || [];
+    configManager.set('recentWorkspaces', recent.filter(p => p !== dirPath));
+  }
+
+  /**
+   * Update Claude Desktop's MCP config so the cliobrain server
+   * points to the currently loaded workspace.
+   * Safe: only touches the "cliobrain" entry, preserves everything else.
+   */
+  private updateClaudeDesktopMcpConfig(workspacePath: string): void {
+    try {
+      // Resolve Claude Desktop config path per platform
+      let configDir: string;
+      if (process.platform === 'darwin') {
+        configDir = path.join(app.getPath('home'), 'Library', 'Application Support', 'Claude');
+      } else if (process.platform === 'win32') {
+        configDir = path.join(process.env.APPDATA || path.join(app.getPath('home'), 'AppData', 'Roaming'), 'Claude');
+      } else {
+        configDir = path.join(process.env.XDG_CONFIG_HOME || path.join(app.getPath('home'), '.config'), 'Claude');
+      }
+
+      const configFile = path.join(configDir, 'claude_desktop_config.json');
+
+      // Read existing config or start fresh
+      let config: any = {};
+      if (fs.existsSync(configFile)) {
+        config = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
+      }
+
+      if (!config.mcpServers) {
+        config.mcpServers = {};
+      }
+
+      // Resolve the mcp-start.sh path from ClioBrain's installation
+      const mcpScript = path.join(app.getAppPath(), 'scripts', 'mcp-start.sh');
+
+      if (config.mcpServers.cliobrain) {
+        // Update existing entry — only change the workspace arg, keep the command
+        config.mcpServers.cliobrain.args = ['--workspace', workspacePath];
+      } else {
+        // Create new entry
+        config.mcpServers.cliobrain = {
+          command: fs.existsSync(mcpScript) ? mcpScript : 'cliobrain-mcp',
+          args: ['--workspace', workspacePath],
+        };
+      }
+
+      // Write back — preserve formatting
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(configFile, JSON.stringify(config, null, 2), 'utf-8');
+      console.log(`[WorkspaceManager] Updated Claude Desktop MCP config → workspace: ${workspacePath}`);
+    } catch (e) {
+      // Non-critical — Claude Desktop may not be installed
+      console.warn('[WorkspaceManager] Could not update Claude Desktop MCP config:', e);
+    }
   }
 
   private addToRecent(dirPath: string, name: string): void {

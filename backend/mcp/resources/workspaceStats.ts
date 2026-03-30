@@ -16,28 +16,20 @@ export function registerWorkspaceStats(server: McpServer, services: McpServices,
     { description: 'Statistics about the indexed research corpus: document counts, entities, chunks, languages.' },
     async (uri) => {
       const stats = services.vectorStore.getStatistics();
-      const db = services.vectorStore as any;
+      const db = services.vectorStore.database;
 
       // Count documents by source type
-      const byTypeStmt = db.db?.prepare?.(
-        'SELECT source_type, COUNT(*) as count FROM documents GROUP BY source_type'
-      );
       const byType: Record<string, number> = {};
-      for (const row of (byTypeStmt?.all() || [])) {
+      for (const row of db.prepare('SELECT source_type, COUNT(*) as count FROM documents GROUP BY source_type').all() as any[]) {
         byType[row.source_type] = row.count;
       }
 
       // Detect languages in corpus
-      const langStmt = db.db?.prepare?.(
-        'SELECT DISTINCT language FROM documents WHERE language IS NOT NULL'
-      );
-      const languages = (langStmt?.all() || []).map((r: any) => r.language);
+      const languages = (db.prepare('SELECT DISTINCT language FROM documents WHERE language IS NOT NULL').all() as any[])
+        .map((r: any) => r.language);
 
       // Last indexation date
-      const lastIndexStmt = db.db?.prepare?.(
-        'SELECT MAX(indexed_at) as last FROM documents'
-      );
-      const lastIndexed = lastIndexStmt?.get()?.last || null;
+      const lastIndexed = (db.prepare('SELECT MAX(indexed_at) as last FROM documents').get() as any)?.last || null;
 
       const result = {
         totalDocuments: stats?.documentCount || 0,

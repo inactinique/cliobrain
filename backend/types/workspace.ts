@@ -5,10 +5,12 @@
 export interface WorkspaceConfig {
   name: string;
   createdAt: string;
+  lastOpenedAt?: string;
   language: 'fr' | 'en' | 'de';
   zotero?: {
     dataDirectory: string;
     libraryID?: number;
+    selectedCollections?: string[];  // collection keys to sync
   };
   tropy?: {
     projectPath: string;

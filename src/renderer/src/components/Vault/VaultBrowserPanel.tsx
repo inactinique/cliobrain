@@ -12,6 +12,7 @@ import {
   RefreshCw,
   FolderOpen,
   Unplug,
+  AlertCircle,
 } from 'lucide-react';
 
 export function VaultBrowserPanel() {
@@ -37,6 +38,7 @@ export function VaultBrowserPanel() {
     openInObsidian,
     reindex,
     isIndexing,
+    error,
   } = useVaultStore();
 
   const [localSearch, setLocalSearch] = useState('');
@@ -63,12 +65,12 @@ export function VaultBrowserPanel() {
   // Not connected state
   if (!isConnected) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm p-4">
+      <div className="h-full flex flex-col items-center justify-center text-sm p-4" style={{ color: 'var(--text-muted)' }}>
         <FolderOpen size={32} className="mb-3 opacity-50" />
         <p className="mb-1">{t('vault.notConnected')}</p>
         <button
           onClick={handleConnect}
-          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700"
+          className="btn-primary mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs"
         >
           <FolderOpen size={14} />
           {t('vault.connect')}
@@ -91,8 +93,16 @@ export function VaultBrowserPanel() {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Error display */}
+      {error && (
+        <div className="flex items-center gap-2 mx-2 mt-2 px-2 py-1.5 rounded text-xs" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+          <AlertCircle size={14} className="shrink-0" />
+          <span className="truncate">{error}</span>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-3 py-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
@@ -105,6 +115,7 @@ export function VaultBrowserPanel() {
               disabled={isIndexing}
               className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-50"
               title={t('vault.reindex')}
+              aria-label={t('vault.reindex')}
             >
               <RefreshCw size={14} className={isIndexing ? 'animate-spin' : ''} />
             </button>
@@ -112,6 +123,7 @@ export function VaultBrowserPanel() {
               onClick={() => disconnect()}
               className="p-1 text-gray-400 hover:text-red-500"
               title={t('vault.disconnect')}
+              aria-label={t('vault.disconnect')}
             >
               <Unplug size={14} />
             </button>
@@ -132,9 +144,9 @@ export function VaultBrowserPanel() {
 
         {/* View mode tabs */}
         <div className="flex gap-1 mt-2">
-          <ViewButton active={viewMode === 'tree'} onClick={() => setViewMode('tree')} icon={<FolderTree size={14} />} />
-          <ViewButton active={viewMode === 'list'} onClick={() => setViewMode('list')} icon={<List size={14} />} />
-          <ViewButton active={viewMode === 'tags'} onClick={() => setViewMode('tags')} icon={<Tags size={14} />} />
+          <ViewButton active={viewMode === 'tree'} onClick={() => setViewMode('tree')} icon={<FolderTree size={14} />} label={t('vault.viewTree')} />
+          <ViewButton active={viewMode === 'list'} onClick={() => setViewMode('list')} icon={<List size={14} />} label={t('vault.viewList')} />
+          <ViewButton active={viewMode === 'tags'} onClick={() => setViewMode('tags')} icon={<Tags size={14} />} label={t('vault.viewTags')} />
         </div>
       </div>
 
@@ -192,7 +204,7 @@ export function VaultBrowserPanel() {
   );
 }
 
-function ViewButton({ active, onClick, icon }: { active: boolean; onClick: () => void; icon: React.ReactNode }) {
+function ViewButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label?: string }) {
   return (
     <button
       onClick={onClick}
@@ -201,6 +213,8 @@ function ViewButton({ active, onClick, icon }: { active: boolean; onClick: () =>
           ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
           : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
       }`}
+      aria-label={label}
+      aria-current={active ? 'page' : undefined}
     >
       {icon}
     </button>

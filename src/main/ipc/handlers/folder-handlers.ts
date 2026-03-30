@@ -8,6 +8,7 @@ let watcherInitialized = false;
 // Ingestion queue to prevent memory exhaustion
 const ingestionQueue: string[] = [];
 let isProcessingQueue = false;
+let processTimeout: ReturnType<typeof setTimeout> | null = null;
 const MAX_QUEUE_SIZE = 200;
 const BATCH_SAVE_INTERVAL = 10; // Save HNSW every N files
 
@@ -53,7 +54,11 @@ function ensureWatcherCallbacks() {
     if (ingestionQueue.length < MAX_QUEUE_SIZE) {
       ingestionQueue.push(event.filePath);
       // Debounce queue processing (wait 2s for more events)
-      setTimeout(() => processQueue(), 2000);
+      if (processTimeout) clearTimeout(processTimeout);
+      processTimeout = setTimeout(() => {
+        processTimeout = null;
+        processQueue();
+      }, 2000);
     }
   });
 }

@@ -80,7 +80,9 @@ class ChatService {
     const searchMs = Date.now() - searchStart;
 
     // Compress context
+    const compressionStart = Date.now();
     const { compressed, stats: compressionStats } = contextCompressor.compress(results);
+    const compressionMs = Date.now() - compressionStart;
 
     // Build prompt
     const sources = compressed.map(r => ({
@@ -150,9 +152,9 @@ class ChatService {
       },
       timing: {
         searchMs,
-        compressionMs: 0,
+        compressionMs,
         generationMs: genMs,
-        totalMs: Date.now() - (Date.now() - searchMs - genMs),
+        totalMs: searchMs + compressionMs + genMs,
       },
     };
 

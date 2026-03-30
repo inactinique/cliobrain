@@ -17,11 +17,11 @@ export function registerSearchDocuments(server: McpServer, services: McpServices
     'Search the indexed research corpus using hybrid semantic + keyword search. Returns relevant text chunks with source metadata.',
     {
       query: z.string().describe('Natural language search query'),
-      limit: z.number().optional().default(10).describe('Maximum number of results (default: 10)'),
+      limit: z.number().min(1).max(100).optional().default(20).describe('Maximum number of results (default: 20, max: 100)'),
       sourceTypes: z.array(
         z.enum(['file', 'zotero', 'tropy', 'folder', 'obsidian-note'])
       ).optional().describe('Filter by source type'),
-      minScore: z.number().optional().default(0.0).describe('Minimum relevance score (default: 0, no filtering)'),
+      minScore: z.number().min(0).max(1).optional().default(0.0).describe('Minimum relevance score 0-1 (default: 0, no filtering)'),
     },
     async ({ query, limit, sourceTypes, minScore }) => {
       try {
@@ -33,12 +33,15 @@ export function registerSearchDocuments(server: McpServer, services: McpServices
 
         // Enrich results with full document metadata from SQLite.
         // The HNSW index may have incomplete document data (missing sourceType, title, etc.)
-        for (const r of results) {
+        // Filter out results where the parent document no longer exists (orphaned chunks).
+        results = results.filter(r => {
           const fullDoc = services.vectorStore.getDocument(r.chunk.documentId);
           if (fullDoc) {
             r.document = fullDoc;
+            return true;
           }
-        }
+          return false;
+        });
 
         // Filter by source type
         if (sourceTypes && sourceTypes.length > 0) {

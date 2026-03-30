@@ -10,21 +10,28 @@ interface SettingsModalProps {
 type Section = 'llm' | 'rag' | 'obsidian' | 'zotero' | 'tropy' | 'folders' | 'language';
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<Section>('llm');
   const [config, setConfig] = useState<any>(null);
+  const [workspaceConfig, setWorkspaceConfig] = useState<any>(null);
   const [ollamaStatus, setOllamaStatus] = useState<boolean | null>(null);
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
     loadConfig();
+    loadWorkspaceConfig();
     checkOllama();
   }, [isOpen]);
 
   const loadConfig = async () => {
     const result = await window.electron.config.getAll();
     if (result.success) setConfig(result.data);
+  };
+
+  const loadWorkspaceConfig = async () => {
+    const result = await window.electron.workspace.getConfig();
+    if (result.success) setWorkspaceConfig(result.data);
   };
 
   const checkOllama = async () => {
@@ -56,7 +63,29 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     });
   };
 
+  // Update workspace-scoped config (Zotero, Tropy, Obsidian)
+  const updateWorkspaceConfig = async (key: string, value: any) => {
+    // Build a partial update object from dotted key, e.g. "zotero.dataDirectory"
+    const keys = key.split('.');
+    const update: any = {};
+    let obj = update;
+    for (let i = 0; i < keys.length - 1; i++) {
+      obj[keys[i]] = {};
+      obj = obj[keys[i]];
+    }
+    obj[keys[keys.length - 1]] = value;
+
+    // Merge with existing workspace config for nested objects
+    if (keys.length > 1 && workspaceConfig?.[keys[0]]) {
+      update[keys[0]] = { ...workspaceConfig[keys[0]], ...update[keys[0]] };
+    }
+
+    await window.electron.workspace.updateConfig(update);
+    setWorkspaceConfig((prev: any) => ({ ...prev, ...update }));
+  };
+
   if (!isOpen || !config) return null;
+  // workspaceConfig may be null if no workspace is loaded — Zotero/Tropy sections will handle it
 
   const sections: Array<{ id: Section; label: string; icon: React.ReactNode }> = [
     { id: 'llm', label: t('settings.llm'), icon: <Bot size={16} /> },
@@ -100,7 +129,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               {sections.find(s => s.id === activeSection)?.label}
             </h3>
-            <button onClick={onClose} className="p-1" style={{ color: 'var(--text-muted)' }}>
+            <button onClick={onClose} className="p-1" style={{ color: 'var(--text-muted)' }} aria-label={t('common.close')}>
               <X size={18} />
             </button>
           </div>
@@ -116,10 +145,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <ObsidianSection config={config} onUpdate={updateConfig} />
             )}
             {activeSection === 'zotero' && (
-              <ZoteroSection config={config} onUpdate={updateConfig} />
+              <ZoteroSection config={workspaceConfig} onUpdate={updateWorkspaceConfig} />
             )}
             {activeSection === 'tropy' && (
-              <TropySection config={config} onUpdate={updateConfig} />
+              <TropySection config={workspaceConfig} onUpdate={updateWorkspaceConfig} />
             )}
             {activeSection === 'folders' && (
               <FoldersSection config={config} />
@@ -137,23 +166,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 // ── Section Components ─────────────────────────────────────────
 
 function LLMSection({ config, onUpdate, ollamaStatus, models }: any) {
+  const { t } = useTranslation();
   return (
     <>
       <div className="flex items-center gap-2 mb-3">
         <div className={`w-2 h-2 rounded-full ${ollamaStatus ? 'bg-green-500' : 'bg-red-500'}`} />
         <span className="text-xs text-gray-500">
-          Ollama: {ollamaStatus ? 'Connected' : 'Disconnected'}
+          {ollamaStatus ? t('settings.ollamaConnected') : t('settings.ollamaDisconnected')}
         </span>
       </div>
-      <Field label="Ollama URL" value={config.llm?.ollamaURL || ''} onChange={v => onUpdate('llm.ollamaURL', v)} />
+      <Field label={t('settings.ollamaURL')} value={config.llm?.ollamaURL || ''} onChange={v => onUpdate('llm.ollamaURL', v)} />
       <SelectField
-        label="Chat Model"
+        label={t('settings.chatModel')}
         value={config.llm?.ollamaChatModel || ''}
         options={models.length > 0 ? models : ['gemma2:2b', 'llama3.2:3b', 'mistral:7b', 'qwen2.5:7b']}
         onChange={v => onUpdate('llm.ollamaChatModel', v)}
       />
       <SelectField
-        label="Embedding Model"
+        label={t('settings.embeddingModel')}
         value={config.llm?.ollamaEmbeddingModel || ''}
         options={models.length > 0 ? models.filter((m: string) => m.includes('embed') || m.includes('nomic')) : ['nomic-embed-text', 'mxbai-embed-large']}
         onChange={v => onUpdate('llm.ollamaEmbeddingModel', v)}
@@ -163,19 +193,21 @@ function LLMSection({ config, onUpdate, ollamaStatus, models }: any) {
 }
 
 function RAGSection({ config, onUpdate }: any) {
+  const { t } = useTranslation();
   return (
     <>
-      <NumberField label="Top K (résultats)" value={config.rag?.topK || 10} onChange={v => onUpdate('rag.topK', v)} min={1} max={50} />
-      <NumberField label="Similarity Threshold" value={config.rag?.similarityThreshold || 0.12} onChange={v => onUpdate('rag.similarityThreshold', v)} min={0} max={1} step={0.01} />
-      <Toggle label="Recherche hybride (dense + sparse)" value={config.rag?.useHybridSearch !== false} onChange={v => onUpdate('rag.useHybridSearch', v)} />
-      <Toggle label="Compression du contexte" value={config.rag?.enableContextCompression !== false} onChange={v => onUpdate('rag.enableContextCompression', v)} />
-      <Toggle label="Mode agent (ReAct)" value={config.rag?.enableAgent || false} onChange={v => onUpdate('rag.enableAgent', v)} />
-      <NumberField label="Max iterations agent" value={config.rag?.maxAgentIterations || 5} onChange={v => onUpdate('rag.maxAgentIterations', v)} min={1} max={10} />
+      <NumberField label={t('settings.topK')} value={config.rag?.topK || 10} onChange={v => onUpdate('rag.topK', v)} min={1} max={50} />
+      <NumberField label={t('settings.similarityThreshold')} value={config.rag?.similarityThreshold || 0.12} onChange={v => onUpdate('rag.similarityThreshold', v)} min={0} max={1} step={0.01} />
+      <Toggle label={t('settings.hybridSearch')} value={config.rag?.useHybridSearch !== false} onChange={v => onUpdate('rag.useHybridSearch', v)} />
+      <Toggle label={t('settings.contextCompression')} value={config.rag?.enableContextCompression !== false} onChange={v => onUpdate('rag.enableContextCompression', v)} />
+      <Toggle label={t('settings.agentMode')} value={config.rag?.enableAgent || false} onChange={v => onUpdate('rag.enableAgent', v)} />
+      <NumberField label={t('settings.maxAgentIterations')} value={config.rag?.maxAgentIterations || 5} onChange={v => onUpdate('rag.maxAgentIterations', v)} min={1} max={10} />
     </>
   );
 }
 
 function ObsidianSection({ config, onUpdate }: any) {
+  const { t } = useTranslation();
   const handleSelectVault = async () => {
     const result = await window.electron.dialog.openDirectory();
     if (result.success && result.data) {
@@ -186,19 +218,20 @@ function ObsidianSection({ config, onUpdate }: any) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <Field label="Vault Path" value={config.obsidian?.vaultPath || ''} onChange={v => onUpdate('obsidian.vaultPath', v)} />
-        <button onClick={handleSelectVault} className="mt-5 px-3 py-1.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 shrink-0">
-          Parcourir
+        <Field label={t('settings.vaultPath')} value={config.obsidian?.vaultPath || ''} onChange={v => onUpdate('obsidian.vaultPath', v)} />
+        <button onClick={handleSelectVault} className="btn-primary mt-5 px-3 py-1.5 text-xs shrink-0" aria-label={t('settings.browse')}>
+          {t('settings.browse')}
         </button>
       </div>
-      <Field label="Export subfolder" value={config.obsidian?.exportSubfolder || 'cliobrain-exports'} onChange={v => onUpdate('obsidian.exportSubfolder', v)} />
-      <Toggle label="Auto-index on file change" value={config.obsidian?.autoIndex !== false} onChange={v => onUpdate('obsidian.autoIndex', v)} />
-      <Toggle label="Index on workspace startup" value={config.obsidian?.indexOnStartup || false} onChange={v => onUpdate('obsidian.indexOnStartup', v)} />
+      <Field label={t('settings.exportSubfolder')} value={config.obsidian?.exportSubfolder || 'cliobrain-exports'} onChange={v => onUpdate('obsidian.exportSubfolder', v)} />
+      <Toggle label={t('settings.autoIndex')} value={config.obsidian?.autoIndex !== false} onChange={v => onUpdate('obsidian.autoIndex', v)} />
+      <Toggle label={t('settings.indexOnStartup')} value={config.obsidian?.indexOnStartup || false} onChange={v => onUpdate('obsidian.indexOnStartup', v)} />
     </>
   );
 }
 
 function ZoteroSection({ config, onUpdate }: any) {
+  const { t } = useTranslation();
   const handleSelectDir = async () => {
     const result = await window.electron.dialog.openDirectory();
     if (result.success && result.data) {
@@ -209,12 +242,12 @@ function ZoteroSection({ config, onUpdate }: any) {
   return (
     <>
       <p className="text-xs text-gray-500 mb-3">
-        Connectez-vous à votre bibliothèque Zotero locale (accès lecture seule à la base SQLite).
+        {t('settings.zoteroHint')}
       </p>
       <div className="flex items-center gap-2">
-        <Field label="Zotero Data Directory" value={config.zotero?.dataDirectory || ''} onChange={v => onUpdate('zotero.dataDirectory', v)} placeholder="~/Zotero" />
-        <button onClick={handleSelectDir} className="mt-5 px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 shrink-0">
-          Parcourir
+        <Field label={t('settings.zoteroDataDirectory')} value={config?.zotero?.dataDirectory || ''} onChange={v => onUpdate('zotero.dataDirectory', v)} placeholder="~/Zotero" />
+        <button onClick={handleSelectDir} className="btn-primary mt-5 px-3 py-1.5 text-xs shrink-0" aria-label={t('settings.browse')}>
+          {t('settings.browse')}
         </button>
       </div>
     </>
@@ -222,13 +255,9 @@ function ZoteroSection({ config, onUpdate }: any) {
 }
 
 function TropySection({ config, onUpdate }: any) {
+  const { t } = useTranslation();
   const handleSelectProject = async () => {
-    // Tropy projects can be .tropy directories or .tpy files
-    // Use directory picker since .tropy is a directory package
-    const result = await window.electron.dialog.openDirectory({
-      treatPackageAsDirectory: true,
-      message: 'Sélectionnez le dossier .tropy ou le fichier .tpy',
-    });
+    const result = await window.electron.dialog.openTropy();
     if (result.success && result.data) {
       onUpdate('tropy.projectPath', result.data);
     }
@@ -237,21 +266,21 @@ function TropySection({ config, onUpdate }: any) {
   return (
     <>
       <p className="text-xs text-gray-500 mb-3">
-        Connectez un projet Tropy (.tropy ou .tpy) pour indexer vos sources primaires.
+        {t('settings.tropyHint')}
       </p>
       <div className="flex items-center gap-2">
-        <Field label="Projet Tropy (.tropy ou .tpy)" value={config.tropy?.projectPath || ''} onChange={v => onUpdate('tropy.projectPath', v)} />
-        <button onClick={handleSelectProject} className="mt-5 px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 shrink-0">
-          Parcourir
+        <Field label={t('settings.tropyProject')} value={config?.tropy?.projectPath || ''} onChange={v => onUpdate('tropy.projectPath', v)} />
+        <button onClick={handleSelectProject} className="btn-primary mt-5 px-3 py-1.5 text-xs shrink-0" aria-label={t('settings.browse')}>
+          {t('settings.browse')}
         </button>
       </div>
-      <Toggle label="OCR sur les photos" value={config.tropy?.performOCR || false} onChange={v => onUpdate('tropy.performOCR', v)} />
-      <SelectField label="Langue OCR" value={config.tropy?.ocrLanguage || 'fra'} options={['fra', 'eng', 'deu']} onChange={v => onUpdate('tropy.ocrLanguage', v)} />
+      <Toggle label={t('settings.performOCR')} value={config.tropy?.performOCR || false} onChange={v => onUpdate('tropy.performOCR', v)} />
+      <SelectField label={t('settings.ocrLanguage')} value={config.tropy?.ocrLanguage || 'fra'} options={['fra', 'eng', 'deu']} onChange={v => onUpdate('tropy.ocrLanguage', v)} />
     </>
   );
 }
 
-function FoldersSection({ config }: any) {
+function FoldersSection({ config: _config }: { config: any }) {
   const [watched, setWatched] = useState<string[]>([]);
 
   useEffect(() => {
@@ -269,30 +298,33 @@ function FoldersSection({ config }: any) {
   };
 
   const handleRemove = async (path: string) => {
+    if (!window.confirm(t('common.confirmDelete'))) return;
     await window.electron.folder.removeWatch(path);
     setWatched(prev => prev.filter(p => p !== path));
   };
 
+  const { t } = useTranslation();
+
   return (
     <>
       <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-        Les dossiers surveillés sont automatiquement indexés quand des fichiers sont ajoutés ou modifiés.
+        {t('settings.foldersHint')}
       </p>
       {watched.map(p => (
         <div key={p} className="flex items-center justify-between rounded px-3 py-2 text-xs" style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-md)' }}>
           <span className="truncate" style={{ color: 'var(--text-primary)' }}>{p}</span>
-          <button onClick={() => handleRemove(p)} className="ml-2 shrink-0" style={{ color: 'var(--color-danger)' }}>✕</button>
+          <button onClick={() => handleRemove(p)} className="ml-2 shrink-0" style={{ color: 'var(--color-danger)' }} aria-label={t('common.delete')}>✕</button>
         </div>
       ))}
       <button onClick={handleAdd} className="w-full py-2 rounded text-xs" style={{ border: '1px dashed var(--border-color)', color: 'var(--text-muted)', borderRadius: 'var(--radius-md)' }}>
-        + Ajouter un dossier
+        {t('settings.addFolder')}
       </button>
     </>
   );
 }
 
 function LanguageSection({ config, onUpdate }: any) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const languages = [
     { code: 'fr', label: 'Français' },
     { code: 'en', label: 'English' },
@@ -309,7 +341,7 @@ function LanguageSection({ config, onUpdate }: any) {
   return (
     <>
       <p className="text-xs text-gray-500 mb-3">
-        Langue de l'interface et des prompts système.
+        {t('settings.languageHint')}
       </p>
       {languages.map(lang => (
         <label key={lang.code} className="flex items-center gap-3 py-2 cursor-pointer">
@@ -325,9 +357,10 @@ function LanguageSection({ config, onUpdate }: any) {
       ))}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <SelectField
-          label="Thème"
+          label={t('settings.theme')}
           value={config.theme || 'system'}
           options={['system', 'light', 'dark']}
+          labels={[t('settings.themeSystem'), t('settings.themeLight'), t('settings.themeDark')]}
           onChange={v => onUpdate('theme', v)}
         />
       </div>
@@ -369,7 +402,7 @@ function NumberField({ label, value, onChange, min, max, step }: { label: string
   );
 }
 
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+function SelectField({ label, value, options, labels, onChange }: { label: string; value: string; options: string[]; labels?: string[]; onChange: (v: string) => void }) {
   return (
     <div>
       <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</label>
@@ -378,7 +411,7 @@ function SelectField({ label, value, options, onChange }: { label: string; value
         onChange={e => onChange(e.target.value)}
         className="w-full px-2 py-1.5 input text-xs"
       >
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        {options.map((o, i) => <option key={o} value={o}>{labels?.[i] || o}</option>)}
       </select>
     </div>
   );

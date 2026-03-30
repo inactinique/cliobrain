@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGraphStore } from '../../stores/graphStore';
 import { GraphVisualization } from './GraphVisualization';
-import { Network, RefreshCw } from 'lucide-react';
+import { Network, RefreshCw, AlertCircle } from 'lucide-react';
 
 export function GraphPanel() {
   const { t } = useTranslation();
-  const { nodes, edges, isLoading, selectedNodeId, loadGraph, selectNode } = useGraphStore();
+  const { nodes, edges, isLoading, error, selectedNodeId, loadGraph, selectNode } = useGraphStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
@@ -59,16 +59,26 @@ export function GraphPanel() {
       {/* Stats bar */}
       <div className="shrink-0 px-3 py-2 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-color)' }}>
         <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-          {t('graph.entities')}: {entityCount} | Docs: {docCount} | {t('graph.relations')}: {edges.length}
+          {t('graph.entities')}: {entityCount} | {t('graph.docs')}: {docCount} | {t('graph.relations')}: {edges.length}
         </div>
         <button
           onClick={() => loadGraph()}
           className="p-1 transition-colors"
           style={{ color: 'var(--text-muted)' }}
+          title={t('graph.refresh')}
+          aria-label={t('graph.refresh')}
         >
           <RefreshCw size={14} />
         </button>
       </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+          <AlertCircle size={14} className="shrink-0" />
+          <span className="truncate">{error}</span>
+        </div>
+      )}
 
       {/* Selected node info */}
       {selectedNodeId && (
@@ -102,12 +112,13 @@ export function GraphPanel() {
 }
 
 function SelectedNodeInfo({ node, onClose }: { node: any; onClose: () => void }) {
+  const { t } = useTranslation();
   if (!node) return null;
 
   const typeLabels: Record<string, string> = {
-    document: 'Document',
-    note: 'Note Obsidian',
-    entity: node.entityType || 'Entité',
+    document: t('graph.document'),
+    note: t('graph.obsidianNote'),
+    entity: node.entityType || t('graph.entity'),
   };
 
   return (
@@ -116,10 +127,10 @@ function SelectedNodeInfo({ node, onClose }: { node: any; onClose: () => void })
         <div className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{node.label}</div>
         <div className="text-xs" style={{ color: 'var(--color-accent)' }}>
           {typeLabels[node.type] || node.type}
-          {node.community !== undefined && ` · Communauté ${node.community}`}
+          {node.community !== undefined && ` · ${t('graph.community')} ${node.community}`}
         </div>
       </div>
-      <button onClick={onClose} className="text-xs shrink-0 ml-2" style={{ color: 'var(--text-muted)' }}>✕</button>
+      <button onClick={onClose} className="text-xs shrink-0 ml-2" style={{ color: 'var(--text-muted)' }} aria-label={t('graph.closeDetail')}>✕</button>
     </div>
   );
 }

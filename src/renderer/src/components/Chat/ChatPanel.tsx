@@ -13,6 +13,7 @@ export function ChatPanel() {
     messages,
     isStreaming,
     streamingContent,
+    error,
     newSession,
     loadSessions,
     appendStreamChunk,
@@ -53,13 +54,14 @@ export function ChatPanel() {
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-accent)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
           title={t('chat.newSession')}
+          aria-label={t('chat.newSession')}
         >
           <MessageSquarePlus size={18} />
         </button>
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <MessageList messages={messages} isStreaming={isStreaming} streamingContent={streamingContent} />
+        <MessageList messages={messages} isStreaming={isStreaming} streamingContent={streamingContent} error={error} />
       </div>
 
       <MessageInput onBeforeSend={ensureSession} />

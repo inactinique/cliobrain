@@ -78,7 +78,8 @@ export function setupVaultHandlers() {
             indexedAt: new Date().toISOString(),
             snippet: parser.generateSnippet(parsed.body),
           };
-        } catch {
+        } catch (e) {
+          console.error(`[Vault] Failed to parse note ${entry.relativePath}:`, e);
           return null;
         }
       }).filter(Boolean) as any[];
@@ -130,7 +131,10 @@ export function setupVaultHandlers() {
           if (linksToThis) {
             backlinks.push({ relativePath: entry.relativePath, title: otherParsed.title });
           }
-        } catch { /* skip */ }
+        } catch (e) {
+          // Skip individual notes that fail to parse during backlink scan
+          console.error(`[Vault] Failed to parse note for backlinks ${entry.relativePath}:`, e);
+        }
       }
 
       return successResponse({
@@ -183,7 +187,10 @@ export function setupVaultHandlers() {
               snippet: parser.generateSnippet(parsed.body),
             });
           }
-        } catch { /* skip */ }
+        } catch (e) {
+          // Skip individual notes that fail to parse during search
+          console.error(`[Vault] Failed to parse note during search ${entry.relativePath}:`, e);
+        }
       }
 
       return successResponse(results);
@@ -207,7 +214,10 @@ export function setupVaultHandlers() {
           for (const tag of parsed.tags) {
             tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
           }
-        } catch { /* skip */ }
+        } catch (e) {
+          // Skip individual notes that fail to parse during tag collection
+          console.error(`[Vault] Failed to parse note for tags ${entry.relativePath}:`, e);
+        }
       }
 
       const tags = Array.from(tagCounts.entries())

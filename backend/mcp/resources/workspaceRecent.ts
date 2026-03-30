@@ -16,22 +16,21 @@ export function registerWorkspaceRecent(server: McpServer, services: McpServices
     'cliobrain://workspace/recent',
     { description: 'The 20 most recently added or modified documents in the corpus, with title, type, date, and excerpt.' },
     async (uri) => {
-      const db = services.vectorStore as any;
+      const db = services.vectorStore.database;
 
       // Get recent documents
-      const recentStmt = db.db?.prepare?.(
+      const recentDocs = db.prepare(
         'SELECT id, title, source_type, file_path, indexed_at, file_modified_at, author, year ' +
         'FROM documents ORDER BY COALESCE(file_modified_at, indexed_at) DESC LIMIT 20'
-      );
-      const recentDocs = recentStmt?.all() || [];
+      ).all() as any[];
 
       // Get first chunk for each document as excerpt
-      const excerptStmt = db.db?.prepare?.(
+      const excerptStmt = db.prepare(
         'SELECT content FROM chunks WHERE document_id = ? ORDER BY chunk_index ASC LIMIT 1'
       );
 
       const results = recentDocs.map((doc: any) => {
-        const firstChunk = excerptStmt?.get(doc.id);
+        const firstChunk = excerptStmt.get(doc.id) as any;
         const excerpt = firstChunk?.content
           ? firstChunk.content.substring(0, 300).replace(/\s+/g, ' ').trim()
           : null;

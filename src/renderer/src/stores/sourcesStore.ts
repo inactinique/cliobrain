@@ -21,6 +21,7 @@ interface SourcesState {
   loadDocuments: () => Promise<void>;
   ingestDocument: (filePath: string) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const useSourcesStore = create<SourcesState>((set) => ({
@@ -63,4 +64,6 @@ export const useSourcesStore = create<SourcesState>((set) => ({
       set({ error: String(error) });
     }
   },
+
+  reset: () => set({ documents: [], isLoading: false, error: null, activeTab: 'documents' }),
 }));

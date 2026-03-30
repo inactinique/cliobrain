@@ -36,7 +36,9 @@ export function setupMcpHandlers() {
           try {
             const lastEntry = JSON.parse(lines[lines.length - 1]);
             lastAccess = lastEntry.timestamp || null;
-          } catch { /* ignore */ }
+          } catch (e) {
+            console.error('[MCP] Failed to parse last log entry:', e);
+          }
         }
       }
 
@@ -73,7 +75,10 @@ export function setupMcpHandlers() {
         .slice(-limit)
         .map(line => {
           try { return JSON.parse(line); }
-          catch { return null; }
+          catch (e) {
+            console.error('[MCP] Failed to parse log line:', e);
+            return null;
+          }
         })
         .filter(Boolean)
         .reverse(); // Most recent first

@@ -52,7 +52,7 @@ export class HNSWVectorStore {
           this.index.setEf(HNSW_EF_SEARCH);
           this.loadMetadata();
           this.initialized = true;
-          console.log(`[HNSW] Loaded index with ${this.currentSize} vectors`);
+          console.error(`[HNSW] Loaded index with ${this.currentSize} vectors`);
           return { success: true, loaded: true, corrupted: false };
         } catch (e) {
           console.warn('[HNSW] Failed to load index, creating new one:', e);
@@ -69,7 +69,7 @@ export class HNSWVectorStore {
       this.chunkDataMap.clear();
       this.initialized = true;
 
-      console.log(`[HNSW] Created new index (dim=${this.dimension})`);
+      console.error(`[HNSW] Created new index (dim=${this.dimension})`);
       return { success: true, loaded: false, corrupted: fs.existsSync(this.indexPath) };
     } catch (error) {
       console.error('[HNSW] Initialization failed:', error);
@@ -82,6 +82,7 @@ export class HNSWVectorStore {
       const stat = fs.statSync(this.indexPath);
       return stat.size > 1024; // Minimum viable index size
     } catch {
+      // File stat failed — treat as invalid index file
       return false;
     }
   }
@@ -90,7 +91,9 @@ export class HNSWVectorStore {
     try {
       if (fs.existsSync(this.indexPath)) fs.unlinkSync(this.indexPath);
       if (fs.existsSync(this.metaPath)) fs.unlinkSync(this.metaPath);
-    } catch { /* ignore */ }
+    } catch {
+      // Cleanup file deletion may fail if files are locked or already removed — non-critical
+    }
     this.chunkIdMap.clear();
     this.chunkDataMap.clear();
     this.currentSize = 0;
@@ -177,7 +180,11 @@ export class HNSWVectorStore {
       fs.renameSync(tmpPath, this.indexPath);
     } catch (e) {
       // Clean up tmp on failure
-      try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(tmpPath);
+      } catch {
+        // Best-effort cleanup of temp file — may already be removed
+      }
       throw e;
     }
 
@@ -191,7 +198,7 @@ export class HNSWVectorStore {
       chunkDataMap: Array.from(this.chunkDataMap.entries()),
     };
     fs.writeFileSync(this.metaPath, JSON.stringify(metadata), 'utf-8');
-    console.log(`[HNSW] Saved index (${this.currentSize} vectors)`);
+    console.error(`[HNSW] Saved index (${this.currentSize} vectors)`);
   }
 
   private loadMetadata(): void {

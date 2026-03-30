@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
-import { Brain, FolderOpen, Plus } from 'lucide-react';
+import { Brain, FolderOpen, Plus, X } from 'lucide-react';
 
 export function WelcomeScreen() {
   const { t } = useTranslation();
-  const { recentWorkspaces, load, create, isLoading } = useWorkspaceStore();
+  const { recentWorkspaces, load, create, removeRecent, isLoading } = useWorkspaceStore();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
 
   const handleCreate = async () => {
     const result = await window.electron.dialog.openDirectory();
     if (result.success && result.data) {
-      await create(result.data, newName || 'Mon espace de travail');
+      await create(result.data, newName || t('workspace.defaultName'));
     }
   };
 
@@ -36,7 +36,7 @@ export function WelcomeScreen() {
           </div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>ClioBrain</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Brainstorming avec vos documents
+            {t('app.tagline')}
           </p>
         </div>
 
@@ -84,21 +84,29 @@ export function WelcomeScreen() {
             </h3>
             <div className="space-y-1">
               {recentWorkspaces.map((ws) => (
-                <button
+                <div
                   key={ws.path}
-                  onClick={() => load(ws.path)}
-                  disabled={isLoading}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded text-left transition-colors"
+                  className="group flex items-center gap-3 px-3 py-2 rounded text-left transition-colors cursor-pointer"
                   style={{ borderRadius: 'var(--radius-md)' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  onClick={() => !isLoading && load(ws.path)}
                 >
                   <Brain size={16} style={{ color: 'var(--color-accent)' }} className="shrink-0" />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{ws.name}</div>
                     <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{ws.path}</div>
                   </div>
-                </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (window.confirm(t('common.confirmDelete'))) removeRecent(ws.path); }}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity"
+                    style={{ color: 'var(--text-muted)' }}
+                    title={t('common.removeFromList')}
+                    aria-label={t('common.removeFromList')}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               ))}
             </div>
           </div>

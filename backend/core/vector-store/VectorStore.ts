@@ -12,6 +12,11 @@ export class VectorStore {
   private db: Database.Database;
   private dbPath: string;
 
+  /** Expose the raw database for advanced queries (MCP tools, graph builder, etc.) */
+  get database(): Database.Database {
+    return this.db;
+  }
+
   constructor(dbPath: string) {
     this.dbPath = dbPath;
     this.db = new Database(dbPath);

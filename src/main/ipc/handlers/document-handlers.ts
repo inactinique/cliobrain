@@ -92,8 +92,42 @@ export function setupDocumentHandlers() {
 
   ipcMain.handle('document:rebuild-index', async () => {
     try {
-      // TODO: Full rebuild from DB
-      return successResponse(true);
+      if (!documentService.isInitialized || !documentService.store || !documentService.hnsw || !documentService.bm25) {
+        return errorResponse('No workspace loaded');
+      }
+
+      const win = BrowserWindow.getAllWindows()[0];
+
+      // Clear existing in-memory indexes
+      documentService.hnsw.clear();
+      await documentService.hnsw.initialize();
+      documentService.bm25.clear();
+
+      // Load all chunks with embeddings from SQLite
+      const chunks = documentService.store.getAllChunksWithEmbeddings();
+
+      if (chunks.length > 0) {
+        // Rebuild HNSW
+        documentService.hnsw.addChunks(chunks.map(c => ({
+          chunk: c.chunk,
+          embedding: c.embedding,
+        })));
+
+        // Rebuild BM25
+        documentService.bm25.addChunks(chunks.map(c => ({ chunk: c.chunk })));
+
+        // Save HNSW to disk
+        documentService.hnsw.save();
+      }
+
+      win?.webContents.send('document:indexing-progress', {
+        phase: 'complete',
+        current: chunks.length,
+        total: chunks.length,
+      });
+
+      console.log(`[DocumentHandlers] Rebuilt indexes with ${chunks.length} chunks`);
+      return successResponse({ chunksReindexed: chunks.length });
     } catch (error) {
       return errorResponse(error);
     }

@@ -118,6 +118,8 @@ function TabButton({
         color: active ? 'var(--color-accent)' : 'var(--text-tertiary)',
         borderBottom: active ? '2px solid var(--color-accent)' : '2px solid transparent',
       }}
+      aria-label={label}
+      aria-current={active ? 'page' : undefined}
     >
       {icon}
       {label}

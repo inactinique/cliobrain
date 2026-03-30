@@ -45,13 +45,14 @@ export function MessageInput({ onBeforeSend }: MessageInputProps) {
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder={t('chat.placeholder')}
+          aria-label={t('chat.placeholder')}
           rows={1}
           disabled={isStreaming}
           className="input flex-1 resize-none max-h-[200px]"
           style={{ borderRadius: 'var(--radius-xl)' }}
         />
         {isStreaming ? (
-          <button onClick={() => cancelStream()} className="btn-danger p-2" style={{ borderRadius: 'var(--radius-xl)' }}>
+          <button onClick={() => cancelStream()} className="btn-danger p-2" style={{ borderRadius: 'var(--radius-xl)' }} aria-label={t('chat.cancel')}>
             <Square size={18} />
           </button>
         ) : (
@@ -60,6 +61,7 @@ export function MessageInput({ onBeforeSend }: MessageInputProps) {
             disabled={!input.trim()}
             className="btn-primary p-2 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ borderRadius: 'var(--radius-xl)' }}
+            aria-label={t('chat.send')}
           >
             <Send size={18} />
           </button>

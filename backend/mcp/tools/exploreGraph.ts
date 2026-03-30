@@ -17,8 +17,8 @@ export function registerExploreGraph(server: McpServer, services: McpServices, l
     'Navigate the knowledge graph of entities, documents, and concepts. Find neighbors, communities, or paths between entities.',
     {
       entity: z.string().describe('Entity or concept name to explore'),
-      depth: z.number().optional().default(1).describe('Traversal depth: 1 = direct neighbors, 2 = neighbors of neighbors'),
-      maxNodes: z.number().optional().default(20).describe('Maximum nodes to return'),
+      depth: z.number().min(1).max(5).optional().default(1).describe('Traversal depth: 1 = direct neighbors, 2 = neighbors of neighbors (max 5)'),
+      maxNodes: z.number().min(1).max(100).optional().default(20).describe('Maximum nodes to return (max 100)'),
       mode: z.enum(['neighbors', 'community', 'path']).optional().default('neighbors').describe('Exploration mode'),
       target: z.string().optional().describe('Target entity for "path" mode'),
     },
@@ -111,8 +111,36 @@ export function registerExploreGraph(server: McpServer, services: McpServices, l
   );
 }
 
+/** Build lookup indexes for O(1) node and edge access */
+function buildGraphIndex(graph: any) {
+  const nodeById = new Map<string, any>();
+  for (const node of graph.nodes) {
+    nodeById.set(node.id, node);
+  }
+
+  const edgesByNode = new Map<string, any[]>();
+  for (const edge of graph.edges) {
+    let sourceList = edgesByNode.get(edge.source);
+    if (!sourceList) {
+      sourceList = [];
+      edgesByNode.set(edge.source, sourceList);
+    }
+    sourceList.push(edge);
+
+    let targetList = edgesByNode.get(edge.target);
+    if (!targetList) {
+      targetList = [];
+      edgesByNode.set(edge.target, targetList);
+    }
+    targetList.push(edge);
+  }
+
+  return { nodeById, edgesByNode };
+}
+
 /** BFS neighbor traversal */
 function getNeighbors(startId: string, graph: any, depth: number, maxNodes: number) {
+  const { nodeById, edgesByNode } = buildGraphIndex(graph);
   const visited = new Set<string>([startId]);
   const queue: Array<{ id: string; level: number }> = [{ id: startId, level: 0 }];
   const resultNodes: any[] = [];
@@ -121,15 +149,13 @@ function getNeighbors(startId: string, graph: any, depth: number, maxNodes: numb
   while (queue.length > 0 && resultNodes.length < maxNodes) {
     const { id, level } = queue.shift()!;
 
-    const node = graph.nodes.find((n: any) => n.id === id);
+    const node = nodeById.get(id);
     if (node) resultNodes.push(node);
 
     if (level >= depth) continue;
 
-    // Find connected edges
-    const connectedEdges = graph.edges.filter(
-      (e: any) => e.source === id || e.target === id
-    );
+    // Find connected edges via adjacency list
+    const connectedEdges = edgesByNode.get(id) || [];
 
     for (const edge of connectedEdges) {
       const neighborId = edge.source === id ? edge.target : edge.source;
@@ -169,6 +195,7 @@ function getCommunity(startNode: any, graph: any, maxNodes: number) {
 
 /** BFS shortest path */
 function findPath(startId: string, targetId: string, graph: any) {
+  const { nodeById, edgesByNode } = buildGraphIndex(graph);
   const visited = new Set<string>([startId]);
   const queue: Array<{ id: string; path: string[] }> = [{ id: startId, path: [startId] }];
 
@@ -176,10 +203,11 @@ function findPath(startId: string, targetId: string, graph: any) {
     const { id, path } = queue.shift()!;
 
     if (id === targetId) {
-      const pathNodes = path.map((pid: string) => graph.nodes.find((n: any) => n.id === pid)).filter(Boolean);
+      const pathNodes = path.map((pid: string) => nodeById.get(pid)).filter(Boolean);
       const pathEdges: any[] = [];
       for (let i = 0; i < path.length - 1; i++) {
-        const edge = graph.edges.find(
+        const adjacentEdges = edgesByNode.get(path[i]) || [];
+        const edge = adjacentEdges.find(
           (e: any) => (e.source === path[i] && e.target === path[i + 1]) ||
                       (e.source === path[i + 1] && e.target === path[i])
         );
@@ -188,9 +216,8 @@ function findPath(startId: string, targetId: string, graph: any) {
       return { found: true, pathLength: path.length - 1, nodes: pathNodes, edges: pathEdges };
     }
 
-    const connectedEdges = graph.edges.filter(
-      (e: any) => e.source === id || e.target === id
-    );
+    // Find connected edges via adjacency list
+    const connectedEdges = edgesByNode.get(id) || [];
 
     for (const edge of connectedEdges) {
       const neighborId = edge.source === id ? edge.target : edge.source;

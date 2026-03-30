@@ -54,4 +54,13 @@ export function setupWorkspaceHandlers() {
       return errorResponse(error);
     }
   });
+
+  ipcMain.handle('workspace:remove-recent', async (_event, dirPath: string) => {
+    try {
+      workspaceManager.removeFromRecent(dirPath);
+      return successResponse(true);
+    } catch (error) {
+      return errorResponse(error);
+    }
+  });
 }

@@ -20,6 +20,21 @@ export function setupFilesystemHandlers() {
     }
   });
 
+  // Tropy-specific dialog: allows selecting .tpy files or .tropy directories
+  ipcMain.handle('dialog:open-tropy', async (_event) => {
+    try {
+      const win = BrowserWindow.getFocusedWindow();
+      if (!win) return errorResponse('No focused window');
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openFile', 'openDirectory', 'treatPackageAsDirectory'],
+        message: 'Sélectionnez un fichier .tpy ou un dossier .tropy',
+      });
+      return successResponse(result.canceled ? null : result.filePaths[0]);
+    } catch (error) {
+      return errorResponse(error);
+    }
+  });
+
   ipcMain.handle('dialog:open-directory', async (_event, options?: any) => {
     try {
       const win = BrowserWindow.getFocusedWindow();

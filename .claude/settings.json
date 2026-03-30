@@ -34,11 +34,38 @@
       "Bash(node -e \":*)",
       "Bash(npx vitest:*)",
       "Bash(chmod +x /Users/frederic.clavert/GitHub/cliobrain/scripts/mcp-start.sh)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(node -e \"require\\(''better-sqlite3''\\)\")",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(node -e \"console.log\\(require.resolve\\(''better-sqlite3''\\)\\)\")",
+      "Bash(rm -rf /Users/frederic.clavert/GitHub/cliobrain/.mcp-native)",
+      "Bash(mkdir -p /Users/frederic.clavert/GitHub/cliobrain/.mcp-native)",
+      "Bash(npm init:*)",
+      "Read(//dev/**)",
+      "Bash(ls -la \"/Users/frederic.clavert/Library/Application Support/cliobrain/workspaces/4daf3a435b63/hnsw\"*)",
+      "Bash(npx electron-rebuild:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -E \"ipcMain\\\\.\\(handle|on\\)\\\\\\(\" /Users/frederic.clavert/GitHub/cliobrain/src/main/ipc/handlers/*.ts)",
+      "Bash(grep -r \"ipcMain.handle\" src/main/ipc/handlers/*.ts)",
+      "Bash(grep -n \"as any\" /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts)",
+      "Bash(wc -l /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts)",
+      "Bash(grep -n \"tropy:file-changed\\\\|tropy:sync-progress\" /Users/frederic.clavert/GitHub/cliobrain/src/main/ipc/handlers/*.ts)",
+      "Bash(grep -n \"limit \\\\* 2\\\\|limit \\\\* 3\" /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts)",
+      "Bash(grep -n \"catch.*Ollama\\\\|Ollama might\\\\|continue with\" /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts)",
+      "Bash(grep -n \"\\\\.db\\\\?\" /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/resources/*.ts)",
+      "Bash(grep -n 'as any' /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/**/*.ts)",
+      "Bash(grep -n \"getDocument.*null\\\\|\\\\.document\\\\|r\\\\.document\\\\|fullDoc\" /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts)",
+      "Bash(grep -n vectorStore.database /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/resources/*.ts)",
+      "Bash(find /Users/frederic.clavert/GitHub/cliobrain/src/renderer/src/components -name \"*.tsx\" -exec grep -l \"onMouseEnter\\\\|onMouseLeave\" {})",
+      "Bash(grep -A 2 \"safeParseJSON\" /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts)",
+      "Read(//Users/frederic.clavert/GitHub/cliobrain/**)",
+      "Bash(ls -la /Users/frederic.clavert/GitHub/cliobrain/scripts/mcp*)",
+      "Bash(grep \"if.*limit\\\\|limit.*<\\\\|limit.*>\" /Users/frederic.clavert/GitHub/cliobrain/backend/mcp/tools/*.ts)"
     ],
     "additionalDirectories": [
       "/Users/frederic.clavert/GitHub/cliobrain",
-      "/Users/frederic.clavert/Library/Application Support/Claude"
+      "/Users/frederic.clavert/Library/Application Support/Claude",
+      "/Users/frederic.clavert/Library/CloudStorage/OneDrive-UniversityofLuxembourg"
     ]
   }
 }

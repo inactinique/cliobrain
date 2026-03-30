@@ -65,8 +65,8 @@ export interface ObsidianConfig {
 export interface AppConfig {
   llm: LLMConfig;
   rag: RAGConfig;
-  zotero?: ZoteroConfig;
-  tropy?: TropyConfig;
+  // Note: zotero and tropy config are per-workspace (see WorkspaceConfig).
+  // ZoteroConfig and TropyConfig interfaces are kept for reference/migration.
   folders?: FolderConfig;
   obsidian?: ObsidianConfig;
   recentWorkspaces: string[];

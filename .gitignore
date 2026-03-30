@@ -34,6 +34,9 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 
+# MCP native modules (separate from Electron's ABI)
+.mcp-native/
+
 # Workspace data (local to each user)
 .cliobrain/
 .claude/settings.json

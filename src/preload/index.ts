@@ -13,6 +13,8 @@ const ALLOWED_RECEIVE_CHANNELS: string[] = [
   'vault:indexing-progress',
   // Zotero/Tropy sync progress
   'zotero:sync-progress', 'tropy:sync-progress', 'tropy:file-changed',
+  // NER progress
+  'ner:progress',
   // Language sync
   'language-changed',
 ];
@@ -50,6 +52,18 @@ const api = {
       const listener = (_event: any, progress: any) => callback(progress);
       ipcRenderer.on('document:indexing-progress', listener);
       return () => ipcRenderer.removeListener('document:indexing-progress', listener);
+    },
+  },
+
+  // NER (background entity extraction)
+  ner: {
+    start: () => ipcRenderer.invoke('ner:start'),
+    stop: () => ipcRenderer.invoke('ner:stop'),
+    getProgress: () => ipcRenderer.invoke('ner:get-progress'),
+    onProgress: (callback: (progress: any) => void) => {
+      const listener = (_event: any, progress: any) => callback(progress);
+      ipcRenderer.on('ner:progress', listener);
+      return () => ipcRenderer.removeListener('ner:progress', listener);
     },
   },
 

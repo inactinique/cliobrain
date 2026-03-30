@@ -13,6 +13,7 @@ import { HybridSearch } from '../../../backend/core/search/HybridSearch.js';
 import { OllamaClient } from '../../../backend/core/llm/OllamaClient.js';
 import { DocumentIngestionPipeline } from '../../../backend/core/ingestion/DocumentIngestionPipeline.js';
 import { configManager } from './config-manager.js';
+import { nerWorker } from './ner-worker.js';
 import type { Document, SearchResult, SearchOptions, VectorStoreStatistics, IndexingProgress } from '../../../backend/types/document.js';
 
 class DocumentService {
@@ -89,7 +90,16 @@ class DocumentService {
       this.loadBM25FromDB();
     }
 
+    // Initialize NER background worker
+    const language = config.rag?.systemPromptLanguage || config.language || 'fr';
+    nerWorker.initialize(this.vectorStore, this.ollamaClient, language);
+
     console.log(`[DocumentService] Initialized at ${dataDir}`);
+  }
+
+  /** Start NER background processing for all unprocessed documents */
+  startNER(): void {
+    nerWorker.start();
   }
 
   async search(query: string, options?: SearchOptions): Promise<SearchResult[]> {
@@ -162,6 +172,7 @@ class DocumentService {
   }
 
   close(): void {
+    nerWorker.close();
     if (this.vectorStore) {
       this.hnswStore?.save();
       this.vectorStore.close();

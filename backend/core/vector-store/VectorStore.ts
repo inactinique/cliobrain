@@ -402,6 +402,56 @@ export class VectorStore {
     };
   }
 
+  // ── Entities ───────────────────────────────────────────────────
+
+  addEntity(entity: { id: string; name: string; type: string; normalizedName: string; aliases?: string[]; createdAt: string }): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO entities (id, name, type, normalized_name, aliases_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(entity.id, entity.name, entity.type, entity.normalizedName, JSON.stringify(entity.aliases || []), entity.createdAt);
+  }
+
+  addEntityMention(mention: { id: string; entityId: string; chunkId: string; documentId: string; context?: string }): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO entity_mentions (id, entity_id, chunk_id, document_id, context)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(mention.id, mention.entityId, mention.chunkId, mention.documentId, mention.context || null);
+  }
+
+  addEntitiesBatch(entities: Array<{ id: string; name: string; type: string; normalizedName: string; aliases?: string[]; createdAt: string }>,
+                   mentions: Array<{ id: string; entityId: string; chunkId: string; documentId: string; context?: string }>): void {
+    const entityStmt = this.db.prepare(`
+      INSERT OR IGNORE INTO entities (id, name, type, normalized_name, aliases_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const mentionStmt = this.db.prepare(`
+      INSERT OR IGNORE INTO entity_mentions (id, entity_id, chunk_id, document_id, context)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const insertAll = this.db.transaction(() => {
+      for (const e of entities) {
+        entityStmt.run(e.id, e.name, e.type, e.normalizedName, JSON.stringify(e.aliases || []), e.createdAt);
+      }
+      for (const m of mentions) {
+        mentionStmt.run(m.id, m.entityId, m.chunkId, m.documentId, m.context || null);
+      }
+    });
+
+    insertAll();
+  }
+
+  /** Get document IDs that have NOT been processed for NER yet */
+  getDocumentsWithoutNER(): Array<{ id: string; title: string }> {
+    return this.db.prepare(`
+      SELECT d.id, d.title FROM documents d
+      WHERE d.id NOT IN (
+        SELECT DISTINCT c.document_id FROM chunks c
+        INNER JOIN entity_mentions em ON em.chunk_id = c.id
+      )
+    `).all() as any[];
+  }
+
   // ── Purge ──────────────────────────────────────────────────────
 
   purgeAll(): void {

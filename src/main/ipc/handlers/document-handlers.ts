@@ -132,4 +132,34 @@ export function setupDocumentHandlers() {
       return errorResponse(error);
     }
   });
+
+  // ── NER background processing ──
+
+  ipcMain.handle('ner:start', async () => {
+    try {
+      documentService.startNER();
+      return successResponse(true);
+    } catch (error) {
+      return errorResponse(error);
+    }
+  });
+
+  ipcMain.handle('ner:stop', async () => {
+    try {
+      const { nerWorker } = await import('../../services/ner-worker.js');
+      nerWorker.stop();
+      return successResponse(true);
+    } catch (error) {
+      return errorResponse(error);
+    }
+  });
+
+  ipcMain.handle('ner:get-progress', async () => {
+    try {
+      const { nerWorker } = await import('../../services/ner-worker.js');
+      return successResponse(nerWorker.getProgress());
+    } catch (error) {
+      return errorResponse(error);
+    }
+  });
 }

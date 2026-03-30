@@ -319,6 +319,29 @@ export class ZoteroLocalDB {
     return result;
   }
 
+  /** Get collection names by their keys */
+  getCollectionNames(keys: string[]): Map<string, string> {
+    if (!this.db || keys.length === 0) return new Map();
+    const placeholders = keys.map(() => '?').join(',');
+    const rows = this.db.prepare(`
+      SELECT key, collectionName as name FROM collections WHERE key IN (${placeholders})
+    `).all(...keys) as any[];
+    return new Map(rows.map((r: any) => [r.key, r.name]));
+  }
+
+  /** Get library info (name, type) for a given item key */
+  getLibraryForItem(itemKey: string): { libraryID: number; type: string; name: string } | null {
+    if (!this.db) return null;
+    const row = this.db.prepare(`
+      SELECT l.libraryID, l.type, COALESCE(g.name, 'My Library') as name
+      FROM items i
+      JOIN libraries l ON i.libraryID = l.libraryID
+      LEFT JOIN groups g ON l.libraryID = g.libraryID
+      WHERE i.key = ?
+    `).get(itemKey) as any;
+    return row || null;
+  }
+
   private getAttachments(parentItemID: number): ZoteroAttachment[] {
     const rows = this.db!.prepare(`
       SELECT i.key, ia.contentType, ia.path, ia.linkMode

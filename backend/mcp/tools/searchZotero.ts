@@ -14,24 +14,26 @@ import type { McpLogger } from '../logger.js';
 export function registerSearchZotero(server: McpServer, services: McpServices, logger: McpLogger): void {
   server.tool(
     'search_zotero',
-    'Search Zotero bibliographic references. Filter by author, tags, year, or free text. Works with indexed Zotero documents in the corpus.',
+    'Search Zotero bibliographic references. Filter by author, tags, year, collection, or free text. Works with indexed Zotero documents in the corpus.',
     {
       query: z.string().optional().describe('Free text search across titles and content'),
       author: z.string().optional().describe('Filter by author name'),
       tags: z.array(z.string()).optional().describe('Filter by tags'),
       year: z.number().optional().describe('Publication year'),
+      collection: z.string().optional().describe('Filter by Zotero collection name (partial match)'),
+      library: z.string().optional().describe('Filter by library/group name (partial match)'),
       limit: z.number().min(1).max(100).optional().default(20).describe('Maximum results (default: 20, max: 100)'),
     },
-    async ({ query, author, tags, year, limit }) => {
+    async ({ query, author, tags, year, collection, library, limit }) => {
       try {
         // Try live Zotero database first
         const zoteroConfig = services.config.workspace.zotero;
         if (zoteroConfig?.dataDirectory) {
-          return await searchLiveZotero(zoteroConfig, { query, author, tags, year, limit }, logger);
+          return await searchLiveZotero(zoteroConfig, { query, author, tags, year, collection, library, limit }, logger);
         }
 
         // Fallback: search indexed Zotero documents in the corpus
-        return await searchIndexedZotero(services, { query, author, tags, year, limit }, logger);
+        return await searchIndexedZotero(services, { query, author, tags, year, collection, library, limit }, logger);
       } catch (error: any) {
         return {
           content: [{ type: 'text' as const, text: `Error: ${error.message}` }],
@@ -47,7 +49,7 @@ export function registerSearchZotero(server: McpServer, services: McpServices, l
  */
 async function searchIndexedZotero(
   services: McpServices,
-  filters: { query?: string; author?: string; tags?: string[]; year?: number; limit: number },
+  filters: { query?: string; author?: string; tags?: string[]; year?: number; collection?: string; library?: string; limit: number },
   logger: McpLogger,
 ) {
   const db = services.vectorStore.database;
@@ -101,6 +103,22 @@ async function searchIndexedZotero(
     );
   }
 
+  // Filter by collection name
+  if (filters.collection) {
+    const colLower = filters.collection.toLowerCase();
+    docs = docs.filter(d =>
+      d.metadata?.collections?.some((c: string) => c.toLowerCase().includes(colLower))
+    );
+  }
+
+  // Filter by library/group name
+  if (filters.library) {
+    const libLower = filters.library.toLowerCase();
+    docs = docs.filter(d =>
+      d.metadata?.libraryName?.toLowerCase().includes(libLower)
+    );
+  }
+
   // Filter by free text query
   if (filters.query) {
     const queryLower = filters.query.toLowerCase();
@@ -144,6 +162,9 @@ async function searchIndexedZotero(
     itemType: d.metadata?.itemType,
     abstract: d.metadata?.abstractNote?.substring(0, 500),
     tags: d.metadata?.tags,
+    collections: d.metadata?.collections,
+    library: d.metadata?.libraryName,
+    libraryType: d.metadata?.libraryType,
     doi: d.metadata?.DOI,
     url: d.metadata?.url,
     excerpt: (excerptStmt.get(d.id) as any)?.content?.substring(0, 300),
@@ -174,7 +195,7 @@ async function searchIndexedZotero(
  */
 async function searchLiveZotero(
   zoteroConfig: { dataDirectory: string; libraryID?: number },
-  filters: { query?: string; author?: string; tags?: string[]; year?: number; limit: number },
+  filters: { query?: string; author?: string; tags?: string[]; year?: number; collection?: string; library?: string; limit: number },
   logger: McpLogger,
 ) {
   const { ZoteroLocalDB } = await import('../../integrations/zotero/ZoteroLocalDB.js');
@@ -208,6 +229,23 @@ async function searchLiveZotero(
       );
     }
 
+    // Filter by collection name (requires resolving collection keys to names)
+    if (filters.collection) {
+      const colLower = filters.collection.toLowerCase();
+      const collectionNames = db.getCollectionNames(
+        Array.from(new Set(items.flatMap(i => i.collectionKeys)))
+      );
+      items = items.filter(item =>
+        item.collectionKeys.some(k => {
+          const name = collectionNames.get(k);
+          return name?.toLowerCase().includes(colLower);
+        })
+      );
+    }
+
+    // Filter by library/group (for live Zotero, all items come from the same library unless we query all)
+    // Note: live query already filters by libraryID if configured
+
     if (filters.query) {
       const queryLower = filters.query.toLowerCase();
       items = items.filter(item => {
@@ -220,6 +258,10 @@ async function searchLiveZotero(
       });
     }
 
+    // Resolve collection names for results
+    const allKeys = Array.from(new Set(items.flatMap(i => i.collectionKeys)));
+    const collectionNameMap = db.getCollectionNames(allKeys);
+
     const results = items.slice(0, filters.limit).map(item => ({
       title: item.title,
       itemType: item.itemType,
@@ -227,6 +269,7 @@ async function searchLiveZotero(
       year: item.date || item.fields?.date,
       abstract: item.abstractNote?.substring(0, 500),
       tags: item.tags,
+      collections: item.collectionKeys.map(k => collectionNameMap.get(k) || k),
       doi: item.fields?.DOI,
       url: item.fields?.url,
     }));

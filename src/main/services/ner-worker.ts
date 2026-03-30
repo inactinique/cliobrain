@@ -122,38 +122,89 @@ export class NERBackgroundWorker {
     console.log(`[NER] Done. ${this.progress.entitiesFound} entities found across ${this.progress.documentsProcessed} documents`);
   }
 
+  /**
+   * Sample chunks for NER: first 3 (title/abstract/intro) + every 5th after that.
+   * Captures most entities without processing every single chunk.
+   */
+  private sampleChunks(chunks: any[]): any[] {
+    const MIN_CHUNK_LENGTH = 100;
+    const FIRST_N = 3;
+    const SAMPLE_EVERY = 5;
+
+    const sampled: any[] = [];
+    for (let i = 0; i < chunks.length; i++) {
+      if (chunks[i].content.length < MIN_CHUNK_LENGTH) continue;
+      if (i < FIRST_N || i % SAMPLE_EVERY === 0) {
+        sampled.push(chunks[i]);
+      }
+    }
+    return sampled;
+  }
+
   private async processDocument(documentId: string, title: string): Promise<void> {
     if (!this.vectorStore || !this.nerService) return;
 
     const rawChunks = this.vectorStore.getChunksForDocument(documentId);
-    this.progress.chunksTotal = rawChunks.length;
+    const sampled = this.sampleChunks(rawChunks);
+    this.progress.chunksTotal = sampled.length;
     this.progress.chunksProcessed = 0;
 
     const allEntities: Entity[] = [];
     const allMentions: EntityMention[] = [];
 
-    for (const chunk of rawChunks) {
+    // Process chunks in batches of 3 (one LLM call per batch)
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < sampled.length; i += BATCH_SIZE) {
       if (this.shouldStop) break;
 
-      try {
-        const { entities, mentions } = await this.nerService.extractEntities(
-          chunk.content, chunk.id, documentId
-        );
+      const batch = sampled.slice(i, i + BATCH_SIZE);
 
-        allEntities.push(...entities);
-        allMentions.push(...mentions);
-        this.progress.entitiesFound += entities.length;
-      } catch (e) {
-        // Individual chunk failure is non-critical — continue
-        console.error(`[NER] Chunk ${chunk.id} failed:`, e);
+      // Concatenate batch texts for a single LLM call
+      // Each chunk is separated and labeled so the LLM can attribute mentions
+      if (batch.length === 1) {
+        // Single chunk — use normal extraction
+        try {
+          const { entities, mentions } = await this.nerService.extractEntities(
+            batch[0].content, batch[0].id, documentId
+          );
+          allEntities.push(...entities);
+          allMentions.push(...mentions);
+          this.progress.entitiesFound += entities.length;
+        } catch (e) {
+          console.error(`[NER] Chunk ${batch[0].id} failed:`, e);
+        }
+      } else {
+        // Multi-chunk batch — concatenate and extract once
+        const combinedText = batch.map((c: any, idx: number) =>
+          `[Section ${idx + 1}]\n${c.content}`
+        ).join('\n\n');
+
+        try {
+          // Use the first chunk's ID as reference; all mentions point to the document
+          const { entities, mentions } = await this.nerService.extractEntities(
+            combinedText, batch[0].id, documentId
+          );
+
+          // Distribute mentions across batch chunks (best effort)
+          for (const mention of mentions) {
+            for (const chunk of batch) {
+              if (chunk.content.toLowerCase().includes(mention.context?.toLowerCase() || '')) {
+                mention.chunkId = chunk.id;
+                break;
+              }
+            }
+          }
+
+          allEntities.push(...entities);
+          allMentions.push(...mentions);
+          this.progress.entitiesFound += entities.length;
+        } catch (e) {
+          console.error(`[NER] Batch failed for "${title}":`, e);
+        }
       }
 
-      this.progress.chunksProcessed++;
-
-      // Emit progress every 3 chunks to avoid flooding IPC
-      if (this.progress.chunksProcessed % 3 === 0) {
-        this.emitProgress();
-      }
+      this.progress.chunksProcessed += batch.length;
+      this.emitProgress();
     }
 
     // Batch-insert all entities and mentions for this document

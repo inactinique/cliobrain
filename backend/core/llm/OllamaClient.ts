@@ -6,7 +6,7 @@
 
 const MAX_TEXT_LENGTH = 2000;
 const EMBEDDING_TIMEOUT_MS = 30_000;
-const GENERATION_TIMEOUT_MS = 120_000;
+const GENERATION_TIMEOUT_MS = 300_000; // 5 min — NER on dense chunks can be slow with local models
 
 export interface OllamaClientConfig {
   baseURL: string;

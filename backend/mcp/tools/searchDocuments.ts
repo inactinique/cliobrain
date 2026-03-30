@@ -70,6 +70,8 @@ export function registerSearchDocuments(server: McpServer, services: McpServices
             section: r.chunk.sectionTitle,
             page: r.chunk.pageNumber,
             tags: r.document.metadata?.tags,
+            collections: r.document.metadata?.collections,
+            library: r.document.metadata?.libraryName,
           },
         }));
 

@@ -71,16 +71,25 @@ export class NERService {
     const truncated = text.length > MAX_TEXT_LENGTH ? text.substring(0, MAX_TEXT_LENGTH) : text;
     const prompt = (PROMPTS[this.language] || PROMPTS.fr).replace('{TEXT}', truncated);
 
+    // NER can be slow on large chunks — retry once on timeout
     let response: string;
-    try {
-      response = await this.ollamaClient.generateResponse(prompt, undefined, {
-        temperature: 0,
-        num_predict: 1024,
-      });
-    } catch (e) {
-      console.error('[NER] LLM call failed:', e);
-      return { entities: [], mentions: [] };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        response = await this.ollamaClient.generateResponse(prompt, undefined, {
+          temperature: 0,
+          num_predict: 1024,
+        });
+        break;
+      } catch (e) {
+        if (attempt === 0 && (e as any)?.name === 'TimeoutError') {
+          console.warn(`[NER] Timeout on chunk ${chunkId}, retrying...`);
+          continue;
+        }
+        console.error(`[NER] LLM call failed (attempt ${attempt + 1}):`, e);
+        return { entities: [], mentions: [] };
+      }
     }
+    if (!response!) return { entities: [], mentions: [] };
 
     const rawEntities = this.parseResponse(response);
     const entities: Entity[] = [];

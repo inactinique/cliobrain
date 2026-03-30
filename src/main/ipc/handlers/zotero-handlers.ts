@@ -52,6 +52,13 @@ export function setupZoteroHandlers() {
         libraryID: options.libraryID,
       });
 
+      // Pre-fetch collection names for all items' collection keys
+      const allCollectionKeys = new Set<string>();
+      for (const item of items) {
+        for (const key of item.collectionKeys) allCollectionKeys.add(key);
+      }
+      const collectionNames = zotero.getCollectionNames(Array.from(allCollectionKeys));
+
       const win = BrowserWindow.getAllWindows()[0];
       let synced = 0;
 
@@ -66,14 +73,32 @@ export function setupZoteroHandlers() {
         });
 
         if (pdfPath) {
+          // Resolve collection names and library info for this item
+          const itemCollections = item.collectionKeys.map(k => collectionNames.get(k) || k);
+          const libraryInfo = zotero.getLibraryForItem(item.key);
+
           try {
             await documentService.ingestFile(pdfPath, {
               sourceType: 'zotero',
               sourceRef: item.key,
+              metadata: {
+                creators: item.creators,
+                tags: item.tags,
+                collections: itemCollections,
+                collectionKeys: item.collectionKeys,
+                libraryName: libraryInfo?.name,
+                libraryType: libraryInfo?.type,
+                itemType: item.itemType,
+                abstractNote: item.abstractNote,
+                date: item.date,
+                DOI: item.fields?.DOI,
+                url: item.fields?.url,
+              },
             });
             synced++;
           } catch (e) {
-            // Skip duplicates and errors silently
+            // Skip duplicates and errors
+            console.error(`[Zotero] Skipped "${item.title}":`, e instanceof Error ? e.message : e);
           }
         }
       }

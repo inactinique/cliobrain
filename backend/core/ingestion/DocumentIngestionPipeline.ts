@@ -46,6 +46,7 @@ export class DocumentIngestionPipeline {
     options?: {
       sourceType?: Document['sourceType'];
       sourceRef?: string;
+      metadata?: Record<string, unknown>;
       onProgress?: ProgressCallback;
     }
   ): Promise<Document> {
@@ -92,17 +93,20 @@ export class DocumentIngestionPipeline {
       throw new Error(`No text content extracted from ${fileName}`);
     }
 
+    // Merge extracted metadata with caller-provided metadata (Zotero collections, tags, etc.)
+    const mergedMetadata = { ...metadata, ...(options?.metadata || {}) };
+
     // Create document record
     const doc: Document = {
       id: documentId,
       filePath: absPath,
-      title: metadata.title || fileName,
-      author: metadata.author,
+      title: mergedMetadata.title as string || fileName,
+      author: mergedMetadata.author as string,
       sourceType: options?.sourceType || 'file',
       sourceRef: options?.sourceRef,
       fileFormat: ext.replace('.', '') as Document['fileFormat'],
       pageCount,
-      metadata,
+      metadata: mergedMetadata,
       createdAt: new Date().toISOString(),
       indexedAt: new Date().toISOString(),
       fileHash,

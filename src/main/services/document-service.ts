@@ -128,7 +128,7 @@ class DocumentService {
     return [];
   }
 
-  async ingestFile(filePath: string, options?: { sourceType?: Document['sourceType']; sourceRef?: string; onProgress?: (p: IndexingProgress) => void }): Promise<Document> {
+  async ingestFile(filePath: string, options?: { sourceType?: Document['sourceType']; sourceRef?: string; metadata?: Record<string, unknown>; onProgress?: (p: IndexingProgress) => void }): Promise<Document> {
     if (!this.ingestionPipeline) throw new Error('Not initialized');
     return this.ingestionPipeline.ingestFile(filePath, options);
   }

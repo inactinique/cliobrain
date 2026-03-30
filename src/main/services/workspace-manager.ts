@@ -1,76 +1,100 @@
 /**
  * Workspace manager for ClioBrain
  *
- * A workspace is a directory containing a .cliobrain/ folder with:
+ * A workspace is a directory inside Application Support containing:
  * - workspace.json: workspace configuration
  * - brain.db: SQLite database (documents, chunks, embeddings, entities, sessions)
- * - hnsw.index: HNSW vector index
+ * - hnsw.index + hnsw.meta.json: HNSW vector index
+ * - mcp-access.jsonl: MCP access log
+ *
+ * All workspaces live under ~/Library/Application Support/cliobrain/workspaces/<slug>/
  */
 
 import path from 'path';
 import fs from 'fs';
-import crypto from 'crypto';
 import { app } from 'electron';
 import type { WorkspaceConfig, WorkspaceMetadata } from '../../../backend/types/workspace.js';
-import { configManager } from './config-manager.js';
 import { documentService } from './document-service.js';
 import { vaultService } from './vault-service.js';
 
-const WORKSPACE_DIR = '.cliobrain';
 const WORKSPACE_CONFIG_FILE = 'workspace.json';
 
 class WorkspaceManager {
-  private currentWorkspacePath: string | null = null;
+  private currentWorkspaceDir: string | null = null;
   private currentConfig: WorkspaceConfig | null = null;
 
   get isLoaded(): boolean {
-    return this.currentWorkspacePath !== null;
+    return this.currentWorkspaceDir !== null;
   }
 
   get workspacePath(): string | null {
-    return this.currentWorkspacePath;
+    return this.currentWorkspaceDir;
   }
 
-  /**
-   * Config dir: .cliobrain/ inside the workspace (synced, lightweight)
-   */
+  /** All workspaces live here */
+  get workspacesRoot(): string {
+    const root = path.join(app.getPath('userData'), 'workspaces');
+    fs.mkdirSync(root, { recursive: true });
+    return root;
+  }
+
+  /** Current workspace directory (config + data together) */
   get configDir(): string | null {
-    if (!this.currentWorkspacePath) return null;
-    return path.join(this.currentWorkspacePath, WORKSPACE_DIR);
+    return this.currentWorkspaceDir;
   }
 
-  /**
-   * Data dir: local storage for DB and indexes (never cloud-synced)
-   * Located in ~/Library/Application Support/cliobrain/workspaces/<hash>/
-   * This avoids SQLite I/O errors on cloud-synced filesystems (OneDrive, iCloud, Dropbox)
-   */
+  /** Same as configDir — config and data are now co-located */
   get dataDir(): string | null {
-    if (!this.currentWorkspacePath) return null;
-    const hash = crypto.createHash('md5').update(this.currentWorkspacePath).digest('hex').substring(0, 12);
-    const localDir = path.join(app.getPath('userData'), 'workspaces', hash);
-    fs.mkdirSync(localDir, { recursive: true });
-    return localDir;
+    return this.currentWorkspaceDir;
   }
 
   get databasePath(): string | null {
-    if (!this.dataDir) return null;
-    return path.join(this.dataDir, 'brain.db');
+    if (!this.currentWorkspaceDir) return null;
+    return path.join(this.currentWorkspaceDir, 'brain.db');
   }
 
   get hnswIndexPath(): string | null {
-    if (!this.dataDir) return null;
-    return path.join(this.dataDir, 'hnsw.index');
+    if (!this.currentWorkspaceDir) return null;
+    return path.join(this.currentWorkspaceDir, 'hnsw.index');
   }
 
   get config(): WorkspaceConfig | null {
     return this.currentConfig;
   }
 
-  async create(dirPath: string, name: string, language: 'fr' | 'en' | 'de' = 'fr'): Promise<WorkspaceMetadata> {
-    const cfgDir = path.join(dirPath, WORKSPACE_DIR);
-    fs.mkdirSync(cfgDir, { recursive: true });
+  /** Create a URL-safe slug from a workspace name */
+  private slugify(name: string): string {
+    let slug = name
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 50);
 
-    // Create workspace config (lightweight, lives in workspace dir — safe to sync)
+    if (!slug) slug = 'workspace';
+
+    // Ensure uniqueness
+    let candidate = slug;
+    let counter = 1;
+    while (fs.existsSync(path.join(this.workspacesRoot, candidate))) {
+      candidate = `${slug}-${counter}`;
+      counter++;
+    }
+
+    return candidate;
+  }
+
+  async create(name: string, language: 'fr' | 'en' | 'de' = 'fr'): Promise<WorkspaceMetadata> {
+    // Close any currently loaded workspace first
+    if (this.currentWorkspaceDir) {
+      await this.close();
+    }
+
+    const slug = this.slugify(name);
+    const wsDir = path.join(this.workspacesRoot, slug);
+    fs.mkdirSync(wsDir, { recursive: true });
+
+    // Create workspace config
     const config: WorkspaceConfig = {
       name,
       createdAt: new Date().toISOString(),
@@ -78,38 +102,35 @@ class WorkspaceManager {
       watchedFolders: [],
     };
 
-    const configPath = path.join(cfgDir, WORKSPACE_CONFIG_FILE);
+    const configPath = path.join(wsDir, WORKSPACE_CONFIG_FILE);
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-    // Add to recent workspaces
-    this.addToRecent(dirPath, name);
+    console.log(`[WorkspaceManager] Created workspace "${name}" at ${wsDir}`);
 
     // Load the newly created workspace
-    return this.load(dirPath);
+    return this.load(wsDir);
   }
 
-  async load(dirPath: string): Promise<WorkspaceMetadata> {
+  async load(wsDir: string): Promise<WorkspaceMetadata> {
     // Close previous workspace if switching to a different one
-    if (this.currentWorkspacePath && this.currentWorkspacePath !== dirPath) {
+    if (this.currentWorkspaceDir && this.currentWorkspaceDir !== wsDir) {
       console.log(`[WorkspaceManager] Closing previous workspace before loading new one`);
       await this.close();
     }
 
-    const cfgDir = path.join(dirPath, WORKSPACE_DIR);
-    const configPath = path.join(cfgDir, WORKSPACE_CONFIG_FILE);
+    const configPath = path.join(wsDir, WORKSPACE_CONFIG_FILE);
 
     if (!fs.existsSync(configPath)) {
-      throw new Error(`No ClioBrain workspace found at ${dirPath}`);
+      throw new Error(`No ClioBrain workspace found at ${wsDir}`);
     }
 
     const configContent = fs.readFileSync(configPath, 'utf-8');
     this.currentConfig = JSON.parse(configContent) as WorkspaceConfig;
-    this.currentWorkspacePath = dirPath;
+    this.currentWorkspaceDir = wsDir;
 
-    // Initialize document service with LOCAL data dir (not cloud-synced)
-    const localDataDir = this.dataDir!;
-    console.log(`[WorkspaceManager] Local data dir: ${localDataDir}`);
-    await documentService.initialize(localDataDir);
+    // Initialize document service (config + data in same directory)
+    console.log(`[WorkspaceManager] Workspace dir: ${wsDir}`);
+    await documentService.initialize(wsDir);
 
     // Auto-connect Obsidian vault if configured
     if (this.currentConfig.obsidian?.vaultPath) {
@@ -130,7 +151,7 @@ class WorkspaceManager {
     const stats = documentService.getStatistics();
     const metadata: WorkspaceMetadata = {
       name: this.currentConfig.name,
-      path: dirPath,
+      path: wsDir,
       createdAt: this.currentConfig.createdAt,
       lastOpenedAt: new Date().toISOString(),
       documentCount: stats?.documentCount,
@@ -139,54 +160,56 @@ class WorkspaceManager {
 
     // Persist lastOpenedAt into workspace config
     this.currentConfig.lastOpenedAt = new Date().toISOString();
-    const configFilePath = path.join(cfgDir, WORKSPACE_CONFIG_FILE);
-    fs.writeFileSync(configFilePath, JSON.stringify(this.currentConfig, null, 2), 'utf-8');
-
-    // Update recent workspaces
-    this.addToRecent(dirPath, this.currentConfig.name);
+    fs.writeFileSync(configPath, JSON.stringify(this.currentConfig, null, 2), 'utf-8');
 
     // Auto-update Claude Desktop MCP config to point to this workspace
-    this.updateClaudeDesktopMcpConfig(dirPath);
+    this.updateClaudeDesktopMcpConfig(wsDir);
 
-    console.log(`[WorkspaceManager] Loaded workspace: ${this.currentConfig.name} at ${dirPath}`);
+    console.log(`[WorkspaceManager] Loaded workspace: ${this.currentConfig.name} at ${wsDir}`);
     return metadata;
   }
 
   async close(): Promise<void> {
     await vaultService.disconnect();
     documentService.close();
-    this.currentWorkspacePath = null;
+    this.currentWorkspaceDir = null;
     this.currentConfig = null;
     console.log('[WorkspaceManager] Workspace closed');
   }
 
   updateConfig(updates: Partial<WorkspaceConfig>): void {
-    if (!this.currentConfig || !this.configDir) {
+    if (!this.currentConfig || !this.currentWorkspaceDir) {
       throw new Error('No workspace loaded');
     }
 
     this.currentConfig = { ...this.currentConfig, ...updates };
 
-    const configPath = path.join(this.configDir, WORKSPACE_CONFIG_FILE);
+    const configPath = path.join(this.currentWorkspaceDir, WORKSPACE_CONFIG_FILE);
     fs.writeFileSync(configPath, JSON.stringify(this.currentConfig, null, 2), 'utf-8');
   }
 
-  getRecent(): WorkspaceMetadata[] {
-    const recent = configManager.get('recentWorkspaces') as string[] || [];
-
-    // Filter out workspaces that no longer exist on disk
-    const validPaths: string[] = [];
+  /** List all workspaces in the workspaces root */
+  list(): WorkspaceMetadata[] {
+    const root = this.workspacesRoot;
     const results: WorkspaceMetadata[] = [];
 
-    for (const p of recent) {
-      const configPath = path.join(p, WORKSPACE_DIR, WORKSPACE_CONFIG_FILE);
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(root);
+    } catch {
+      return [];
+    }
+
+    for (const entry of entries) {
+      const wsDir = path.join(root, entry);
+      const configPath = path.join(wsDir, WORKSPACE_CONFIG_FILE);
       if (!fs.existsSync(configPath)) continue;
+
       try {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as WorkspaceConfig;
-        validPaths.push(p);
         results.push({
           name: config.name,
-          path: p,
+          path: wsDir,
           createdAt: config.createdAt,
           lastOpenedAt: config.lastOpenedAt || config.createdAt,
         });
@@ -195,27 +218,41 @@ class WorkspaceManager {
       }
     }
 
-    // Persist the cleaned list if stale entries were removed
-    if (validPaths.length !== recent.length) {
-      configManager.set('recentWorkspaces', validPaths);
-    }
+    // Sort by lastOpenedAt descending (most recent first)
+    results.sort((a, b) => new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime());
 
     return results;
   }
 
+  /** Delete a workspace and all its data */
+  deleteWorkspace(wsDir: string): void {
+    // Don't delete the currently loaded workspace
+    if (this.currentWorkspaceDir === wsDir) {
+      throw new Error('Cannot delete the currently loaded workspace. Close it first.');
+    }
+
+    if (fs.existsSync(wsDir)) {
+      fs.rmSync(wsDir, { recursive: true });
+      console.log(`[WorkspaceManager] Deleted workspace at ${wsDir}`);
+    }
+  }
+
+  // Keep for backward compatibility — alias for list()
+  getRecent(): WorkspaceMetadata[] {
+    return this.list();
+  }
+
   removeFromRecent(dirPath: string): void {
-    const recent = configManager.get('recentWorkspaces') as string[] || [];
-    configManager.set('recentWorkspaces', recent.filter(p => p !== dirPath));
+    // Now this means delete the workspace
+    this.deleteWorkspace(dirPath);
   }
 
   /**
    * Update Claude Desktop's MCP config so the cliobrain server
    * points to the currently loaded workspace.
-   * Safe: only touches the "cliobrain" entry, preserves everything else.
    */
   private updateClaudeDesktopMcpConfig(workspacePath: string): void {
     try {
-      // Resolve Claude Desktop config path per platform
       let configDir: string;
       if (process.platform === 'darwin') {
         configDir = path.join(app.getPath('home'), 'Library', 'Application Support', 'Claude');
@@ -227,7 +264,6 @@ class WorkspaceManager {
 
       const configFile = path.join(configDir, 'claude_desktop_config.json');
 
-      // Read existing config or start fresh
       let config: any = {};
       if (fs.existsSync(configFile)) {
         config = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
@@ -237,35 +273,23 @@ class WorkspaceManager {
         config.mcpServers = {};
       }
 
-      // Resolve the mcp-start.sh path from ClioBrain's installation
       const mcpScript = path.join(app.getAppPath(), 'scripts', 'mcp-start.sh');
 
       if (config.mcpServers.cliobrain) {
-        // Update existing entry — only change the workspace arg, keep the command
         config.mcpServers.cliobrain.args = ['--workspace', workspacePath];
       } else {
-        // Create new entry
         config.mcpServers.cliobrain = {
           command: fs.existsSync(mcpScript) ? mcpScript : 'cliobrain-mcp',
           args: ['--workspace', workspacePath],
         };
       }
 
-      // Write back — preserve formatting
       fs.mkdirSync(configDir, { recursive: true });
       fs.writeFileSync(configFile, JSON.stringify(config, null, 2), 'utf-8');
       console.log(`[WorkspaceManager] Updated Claude Desktop MCP config → workspace: ${workspacePath}`);
     } catch (e) {
-      // Non-critical — Claude Desktop may not be installed
       console.warn('[WorkspaceManager] Could not update Claude Desktop MCP config:', e);
     }
-  }
-
-  private addToRecent(dirPath: string, name: string): void {
-    const recent = configManager.get('recentWorkspaces') as string[] || [];
-    const filtered = recent.filter(p => p !== dirPath);
-    filtered.unshift(dirPath);
-    configManager.set('recentWorkspaces', filtered.slice(0, 10));
   }
 }
 

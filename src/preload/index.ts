@@ -24,14 +24,16 @@ const ALLOWED_SEND_CHANNELS: string[] = [
 const api = {
   // Workspace management
   workspace: {
-    create: (data: { dirPath: string; name: string; language?: string }) =>
+    create: (data: { name: string; language?: string }) =>
       ipcRenderer.invoke('workspace:create', data),
-    load: (dirPath: string) => ipcRenderer.invoke('workspace:load', dirPath),
+    load: (wsDir: string) => ipcRenderer.invoke('workspace:load', wsDir),
     close: () => ipcRenderer.invoke('workspace:close'),
+    list: () => ipcRenderer.invoke('workspace:list'),
     getRecent: () => ipcRenderer.invoke('workspace:get-recent'),
     getConfig: () => ipcRenderer.invoke('workspace:get-config'),
     updateConfig: (updates: any) => ipcRenderer.invoke('workspace:update-config', updates),
-    removeRecent: (dirPath: string) => ipcRenderer.invoke('workspace:remove-recent', dirPath),
+    delete: (wsDir: string) => ipcRenderer.invoke('workspace:delete', wsDir),
+    removeRecent: (wsDir: string) => ipcRenderer.invoke('workspace:remove-recent', wsDir),
   },
 
   // Documents

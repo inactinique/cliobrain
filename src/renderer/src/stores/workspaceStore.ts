@@ -1,63 +1,65 @@
 import { create } from 'zustand';
 import { useSourcesStore } from './sourcesStore';
-import { useChatStore } from './chatStore';
 
 interface WorkspaceMetadata {
   name: string;
   path: string;
   createdAt: string;
   lastOpenedAt: string;
+  documentCount?: number;
+  vaultNoteCount?: number;
 }
 
 interface WorkspaceState {
   isLoaded: boolean;
   current: WorkspaceMetadata | null;
-  recentWorkspaces: WorkspaceMetadata[];
+  workspaces: WorkspaceMetadata[];
   isLoading: boolean;
   error: string | null;
 
-  loadRecent: () => Promise<void>;
-  removeRecent: (dirPath: string) => Promise<void>;
-  create: (dirPath: string, name: string, language?: string) => Promise<void>;
-  load: (dirPath: string) => Promise<void>;
+  loadWorkspaces: () => Promise<void>;
+  create: (name: string, language?: string) => Promise<void>;
+  load: (wsDir: string) => Promise<void>;
   close: () => Promise<void>;
+  deleteWorkspace: (wsDir: string) => Promise<void>;
+
+  // Backward compat aliases
+  recentWorkspaces: WorkspaceMetadata[];
+  loadRecent: () => Promise<void>;
+  removeRecent: (wsDir: string) => Promise<void>;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
+export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   isLoaded: false,
   current: null,
-  recentWorkspaces: [],
+  workspaces: [],
   isLoading: false,
   error: null,
 
-  loadRecent: async () => {
+  // Alias
+  get recentWorkspaces() { return get().workspaces; },
+
+  loadWorkspaces: async () => {
     try {
-      const result = await window.electron.workspace.getRecent();
+      const result = await window.electron.workspace.list();
       if (result.success) {
-        set({ recentWorkspaces: result.data || [] });
+        set({ workspaces: result.data || [] });
       }
     } catch (error) {
-      console.error('Failed to load recent workspaces:', error);
+      console.error('Failed to load workspaces:', error);
     }
   },
 
-  removeRecent: async (dirPath: string) => {
-    try {
-      await window.electron.workspace.removeRecent(dirPath);
-      set(state => ({
-        recentWorkspaces: state.recentWorkspaces.filter(ws => ws.path !== dirPath),
-      }));
-    } catch (error) {
-      console.error('Failed to remove recent workspace:', error);
-    }
+  // Alias
+  loadRecent: async () => {
+    return get().loadWorkspaces();
   },
 
-  create: async (dirPath: string, name: string, language?: string) => {
+  create: async (name: string, language?: string) => {
     set({ isLoading: true, error: null });
     try {
-      // Reset all data stores before loading new workspace
       useSourcesStore.getState().reset();
-      const result = await window.electron.workspace.create({ dirPath, name, language });
+      const result = await window.electron.workspace.create({ name, language });
       if (result.success) {
         set({ current: result.data, isLoaded: true, isLoading: false });
       } else {
@@ -68,12 +70,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     }
   },
 
-  load: async (dirPath: string) => {
+  load: async (wsDir: string) => {
     set({ isLoading: true, error: null });
     try {
-      // Reset all data stores before loading new workspace
       useSourcesStore.getState().reset();
-      const result = await window.electron.workspace.load(dirPath);
+      const result = await window.electron.workspace.load(wsDir);
       if (result.success) {
         set({ current: result.data, isLoaded: true, isLoading: false });
       } else {
@@ -91,5 +92,21 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     } catch (error) {
       console.error('Failed to close workspace:', error);
     }
+  },
+
+  deleteWorkspace: async (wsDir: string) => {
+    try {
+      await window.electron.workspace.delete(wsDir);
+      set(state => ({
+        workspaces: state.workspaces.filter(ws => ws.path !== wsDir),
+      }));
+    } catch (error) {
+      console.error('Failed to delete workspace:', error);
+    }
+  },
+
+  // Alias
+  removeRecent: async (wsDir: string) => {
+    return get().deleteWorkspace(wsDir);
   },
 }));

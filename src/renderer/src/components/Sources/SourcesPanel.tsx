@@ -63,7 +63,7 @@ export function SourcesPanel() {
           <DocumentsTab documents={documents} onAdd={handleAddDocument} isLoading={isLoading} />
         </div>
         <div className={activeTab === 'zotero' ? 'h-full' : 'hidden'}>
-          <ZoteroTab />
+          <ZoteroTab isActive={activeTab === 'zotero'} />
         </div>
         <div style={{ display: activeTab === 'tropy' ? 'contents' : 'none' }}>
           <TropyTab />
@@ -270,7 +270,7 @@ interface ZoteroLibrary {
   collections: CollectionNode[];
 }
 
-function ZoteroTab() {
+function ZoteroTab({ isActive }: { isActive: boolean }) {
   const { t } = useTranslation();
   const [libraries, setLibraries] = useState<ZoteroLibrary[]>([]);
   const [isConfigured, setIsConfigured] = useState(false);
@@ -281,19 +281,27 @@ function ZoteroTab() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [filterQuery, setFilterQuery] = useState('');
 
+  // Re-check config every time this tab becomes active.
+  // This catches config changes made in Settings without requiring a restart.
   useEffect(() => {
-    loadZoteroConfig();
-  }, []);
+    if (isActive) loadZoteroConfig();
+  }, [isActive]);
 
   const loadZoteroConfig = async () => {
     const wsResult = await window.electron.workspace.getConfig();
     if (wsResult.success && wsResult.data?.zotero?.dataDirectory) {
       const dir = wsResult.data.zotero.dataDirectory;
-      setDataDirectory(dir);
-      setIsConfigured(true);
       const saved = wsResult.data.zotero.selectedCollections || [];
       setSelectedKeys(new Set(saved));
-      loadLibrariesAndCollections(dir);
+      setIsConfigured(true);
+
+      // Only fetch collections if not yet loaded or directory changed
+      if (libraries.length === 0 || dir !== dataDirectory) {
+        setDataDirectory(dir);
+        loadLibrariesAndCollections(dir);
+      }
+    } else {
+      setIsConfigured(false);
     }
   };
 

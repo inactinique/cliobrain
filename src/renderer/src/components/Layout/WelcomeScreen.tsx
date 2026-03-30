@@ -1,25 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
-import { Brain, FolderOpen, Plus, X } from 'lucide-react';
+import { Brain, Plus, X, Trash2 } from 'lucide-react';
 
 export function WelcomeScreen() {
   const { t } = useTranslation();
-  const { recentWorkspaces, load, create, removeRecent, isLoading } = useWorkspaceStore();
+  const { workspaces, load, create, deleteWorkspace, loadWorkspaces, isLoading } = useWorkspaceStore();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
 
+  useEffect(() => {
+    loadWorkspaces();
+  }, [loadWorkspaces]);
+
   const handleCreate = async () => {
-    const result = await window.electron.dialog.openDirectory();
-    if (result.success && result.data) {
-      await create(result.data, newName || t('workspace.defaultName'));
-    }
+    const name = newName.trim();
+    if (!name) return;
+    await create(name);
+    setNewName('');
+    setShowCreate(false);
   };
 
-  const handleOpen = async () => {
-    const result = await window.electron.dialog.openDirectory();
-    if (result.success && result.data) {
-      await load(result.data);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCreate();
     }
   };
 
@@ -48,12 +53,13 @@ export function WelcomeScreen() {
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder={t('workspace.name')}
                 className="input w-full"
                 autoFocus
               />
               <div className="flex gap-2">
-                <button onClick={handleCreate} disabled={isLoading} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                <button onClick={handleCreate} disabled={isLoading || !newName.trim()} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-40">
                   <Plus size={16} />
                   {t('workspace.create')}
                 </button>
@@ -63,27 +69,21 @@ export function WelcomeScreen() {
               </div>
             </div>
           ) : (
-            <>
-              <button onClick={() => setShowCreate(true)} className="btn-primary w-full flex items-center gap-3 py-3 justify-center">
-                <Plus size={18} />
-                {t('workspace.new')}
-              </button>
-              <button onClick={handleOpen} className="btn-secondary w-full flex items-center gap-3 py-3 justify-center">
-                <FolderOpen size={18} />
-                {t('workspace.open')}
-              </button>
-            </>
+            <button onClick={() => setShowCreate(true)} className="btn-primary w-full flex items-center gap-3 py-3 justify-center">
+              <Plus size={18} />
+              {t('workspace.new')}
+            </button>
           )}
         </div>
 
-        {/* Recent */}
-        {recentWorkspaces.length > 0 && (
+        {/* All workspaces */}
+        {workspaces.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
               {t('workspace.recent')}
             </h3>
             <div className="space-y-1">
-              {recentWorkspaces.map((ws) => (
+              {workspaces.map((ws) => (
                 <div
                   key={ws.path}
                   className="group flex items-center gap-3 px-3 py-2 rounded text-left transition-colors cursor-pointer"
@@ -95,16 +95,21 @@ export function WelcomeScreen() {
                   <Brain size={16} style={{ color: 'var(--color-accent)' }} className="shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{ws.name}</div>
-                    <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{ws.path}</div>
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {ws.documentCount != null ? `${ws.documentCount} docs` : ''}
+                      {ws.documentCount != null && ws.vaultNoteCount != null ? ' · ' : ''}
+                      {ws.vaultNoteCount != null ? `${ws.vaultNoteCount} notes` : ''}
+                      {!ws.documentCount && !ws.vaultNoteCount ? new Date(ws.lastOpenedAt).toLocaleDateString() : ''}
+                    </div>
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); if (window.confirm(t('common.confirmDelete'))) removeRecent(ws.path); }}
+                    onClick={(e) => { e.stopPropagation(); if (window.confirm(t('common.confirmDelete'))) deleteWorkspace(ws.path); }}
                     className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity"
                     style={{ color: 'var(--text-muted)' }}
-                    title={t('common.removeFromList')}
-                    aria-label={t('common.removeFromList')}
+                    title={t('common.delete')}
+                    aria-label={t('common.delete')}
                   >
-                    <X size={14} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               ))}
